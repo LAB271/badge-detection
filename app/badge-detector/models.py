@@ -26,7 +26,7 @@ class PersonDetector:
 
 
 class BadgeDetector:
-    def __init__(self, model_arch='mobilenet'):
+    def __init__(self, model_arch='mobilenet_v2'):
         # resnet50      - inference time: 3.5s  - accuracy: very high
         # mobilenet_v3  - inference time: 0.2s  - accuracy: moderate
 

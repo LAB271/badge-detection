@@ -16,11 +16,10 @@ badge_detection_model = BadgeDetector().model
 # camera1 = SurveillanceCamera(1, person_detection_model, badge_detection_model, PATH_TO_1PERSON_TEST_VIDEO, 25, 25, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
 # camera2 = SurveillanceCamera(2, person_detection_model, badge_detection_model, PATH_TO_2PERSON_TEST_VIDEO, 25, 25, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
 # camera3 = SurveillanceCamera(3, person_detection_model, badge_detection_model, PATH_TO_MULTI_PERSON_TEST_VIDEO, 25, 3, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT, record='output')
-# goproCam = SurveillanceCamera('GoPro', person_detection_model, badge_detection_model, 'udp://127.0.0.1:10000', 30, 10, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT, interface = True, record='output')
-hikvision = SurveillanceCamera('labs-hikvision', person_detection_model, badge_detection_model, PATH_TO_RTSP_HIKVSION_DOME_CAMERA, 10,
-                               2, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT, record=os.path.join('output', 'recordings'))
+#goproCam = SurveillanceCamera('GoPro', person_detection_model, badge_detection_model, 'udp://127.0.0.1:10000', 30, 2, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT, interface = True)
+hikvision = SurveillanceCamera('labs-hikvision', person_detection_model, badge_detection_model, PATH_TO_RTSP_HIKVSION_DOME_CAMERA, 10, 2, BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
 
-camera_list = [hikvision]
+#camera_list = [hikvision]
 
 while True:
     hikvision.update()

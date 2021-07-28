@@ -39,6 +39,11 @@ That's when we started looking for a new approach and the mobilenet-v3 seems to 
 - For dev purposes the camera now stores each detected badge
 - general bug fixes and cleanup
 
+## Update (28 July 2021):
+- set up the Google Cloud Console environment
+- collected more data
+- retrained the mobilenet on the new data, which drastically improved the model's performance (it's now equally as precise as the resnet50), and converted the FP32 weights to FP16, which resulted in no quality loss, but halfed the amount of computation required to check the badges. The new model weights are saved under mobilenet_v2
+- TODO: investigate weight conversion to uint8
 
 ## [ultra-lightweight face detection model](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
 This model is a lightweight facedetection model designed for edge computing devices.

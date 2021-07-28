@@ -57,6 +57,7 @@ class SurveillanceCamera(object):
         self.frame_id = 1
 
         # Basic image prep
+        #self.orig_image = cv2.flip(self.orig_image, 0)
         image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
         image_dimensions = self.orig_image.shape  # (h,w,c)
 
@@ -71,7 +72,7 @@ class SurveillanceCamera(object):
                 # Changing the coordinates to bound the body instead of the face but also ensuring it doesn't go outside of the image bounds
                 # Head to body ratio is ~ 1:4 - 1:8. That can be used to mark the required body size knowing the head measurements
                 ratioW = faces[i][2] - faces[i][0]
-                ratioH = (faces[i][3] - faces[i][1]) * 5
+                ratioH = (faces[i][3] - faces[i][1]) * 6
                 faces[i][0] = int(faces[i][0]) - ratioW
                 faces[i][1] = int(faces[i][1])
                 faces[i][2] = int(faces[i][2]) + ratioW
@@ -188,9 +189,9 @@ class SurveillanceCamera(object):
                             label = str(current_time) + str(rint)
                             badge_cutout = cutout_image[yB:y1B, xB:x1B]
                             path = os.path.join('/Users/nkybartas/Documents/GitHub/badge-detection/output', 'badges', '{}.jpg'.format(label))
-                            print('attempting to write to {}'.format(path))
                             cv2.imwrite(path, badge_cutout)
-
+                            path = os.path.join('/Users/nkybartas/Documents/GitHub/badge-detection/output', 'person_cutouts', '{}.jpg'.format(label))
+                            cv2.imwrite(path, cutout_image)
                             cv2.rectangle(cutout_image, (xB, yB), (x1B, y1B), (0, 0, 255), 2)
                             cv2.putText(cutout_image, ('badge: ' + str(badge_score)), (xB, yB),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
