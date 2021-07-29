@@ -12,6 +12,8 @@ class Person(object):
         self.buffer = []
         self.buffer_badges = []
         self.badge = None
+        self.badge_number = None
+        self.badge_score = None
         self.badgeCheckCount = 0
         self.maxLifetime = maxLifetime
         self.age = 0
@@ -23,18 +25,18 @@ class Person(object):
     def get_id(self):
         return self.id
 
-    def getBufferOppacity(self, badges=None):
-        if badges is not None:
+    def getBufferOppacity(self, value=''):
+        if 'badge' in value:
             return len(self.buffer_badges)
         return len(self.buffer)
 
-    def getBuffer(self, badges=None):
-        if badges is not None:
+    def getBuffer(self, value=''):
+        if 'badge' in value:
             return self.buffer_badges
         return self.buffer
 
-    def clearBuffer(self, badges=None):
-        if badges is not None:
+    def clearBuffer(self, value=''):
+        if 'badge' in value:
             self.buffer_badges = []
         self.buffer = []
         self.maxBufferSize = 1
@@ -43,8 +45,11 @@ class Person(object):
         return self.maxBufferSize
 
     # if formated is True, return a PIL image, if False, a pytorch tensor
-    def getImage(self, idx, formated=True):
-        image = self.buffer[idx]
+    def getImage(self, idx, formated=True, value=''):
+        if 'badge' in value:
+            image = self.buffer_badges[idx]
+        else:
+            image = self.buffer[idx]
         image = image[0]
         if formated:
             image = transforms.ToPILImage()(image).convert("RGB")
@@ -56,15 +61,17 @@ class Person(object):
             del self.buffer[0]
         self.buffer.append(image)
 
-    def addScoreToBuffer(self, score):
-        self.buffer_badges.append(score)
+    def addBadgeToBuffer(self, image):
+        self.buffer_badges.append(image)
 
     def hasBadge(self):
         return self.badge
 
-    def setBadge(self, value=None):
+    def setBadge(self, value=None, badge_number=None):
         if value is None:
             self.badgeCheckCount += 1
+        if badge_number is not None:
+            self.badge_number = badge_number
         self.badge = value
 
     # Check whether the object is still being tracked

@@ -10,7 +10,7 @@ test_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
 class PersonDetector:
-    def __init__(self, image_size=1280, threshold=0.75, candidate_size=1000):
+    def __init__(self, image_size=1280, candidate_size=1000):
         define_img_size(image_size)
         from app.models.faceDetection.vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd, \
             create_Mb_Tiny_RFB_fd_predictor
@@ -30,7 +30,7 @@ class BadgeDetector:
         # resnet50      - inference time: 3.5s  - accuracy: very high
         # mobilenet_v3  - inference time: 0.2s  - accuracy: moderate
 
-        if model_arch == 'mobilenet':
+        if 'mobilenet' in model_arch:
             self.model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_320_fpn(pretrained=True)
         elif model_arch == 'resnet50':
             self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
@@ -42,3 +42,17 @@ class BadgeDetector:
         self.model.eval()
 
         print('Badge detection model loaded')
+
+class BadgeClassifier:
+    def __init__(self, model_arch='mobilenet_v2'):
+
+        if 'mobilenet' in model_arch:
+            self.model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_320_fpn(pretrained=True)
+        
+        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes=6)
+        self.model.load_state_dict(
+            torch.load(os.path.join("app/models", "badgeClassification", model_arch), map_location=torch.device(test_device)))
+        self.model.eval()
+
+        print('Badge classification model loaded - version SBP')

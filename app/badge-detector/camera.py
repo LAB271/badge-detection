@@ -1,19 +1,21 @@
 import os
 from datetime import datetime
-
+from time import sleep
 import cv2
 import numpy as np
+from numpy.core.fromnumeric import nonzero
 from torch import no_grad
 from random import randint
 from person import Person
 from sort.sort import Sort
-from utils import normalise_bbox, image_loader
+from utils import normalise_bbox, image_loader, badge_num_to_color, print_alert
+from statistics import mode
 
 
 class SurveillanceCamera(object):
     count = 0
 
-    def __init__(self, id, face_predictor, badge_predictor, path_to_stream, camera_fps, wanted_fps, buffer_size,
+    def __init__(self, id, face_predictor, badge_predictor, badge_classifier, allowed_badges, path_to_stream, camera_fps, wanted_fps, buffer_size,
                  object_lifetime, max_badge_check_count, interface=True, record=None):
 
         self.id = id
@@ -22,31 +24,45 @@ class SurveillanceCamera(object):
         self.max_badge_check_count = max_badge_check_count
         self.interface = interface
         self.cap = cv2.VideoCapture(path_to_stream)
+        #self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
         self.record = record
 
         if self.record is not None:
             now = datetime.now()
             current_time = now.strftime(r"%d-%m-%Y_%H-%M-%S")
             _, image = self.cap.read()
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            self.out = cv2.VideoWriter(os.path.join(self.record, 'Camera {} - {}.mp4'.format(self.id, current_time)),
+            #fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+            fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
+            self.out = cv2.VideoWriter()
+            self.out.open(os.path.join(self.record, 'Camera {} - {}.avi'.format(self.id, current_time)),
                                        fourcc, wanted_fps, (image.shape[1], image.shape[0]))
 
         self.mot_tracker = Sort(max_age=object_lifetime)
         self.face_predictor = face_predictor
         self.badge_predictor = badge_predictor
+        self.badge_classifier = badge_classifier
+        self.allowed_badges = allowed_badges
         self.tracked_person_list = []
         self.frame_id = 0
         SurveillanceCamera.count += 1
         self.frames_to_skip = int(camera_fps / wanted_fps)
         self.orig_image = None
 
+
+
+
+
     def update(self):
         ret, self.orig_image = self.cap.read()
         if ret is False:
             # Implement some sort of restart system here. Security cameras should not ever be turned off
             print("Exiting. Code 0")
-            return False
+            if self.record is not None:
+                self.out.release()
+            if self.interface:
+                self.cap.release()
+            sleep(10)
+            return
 
         # FPS Control.
         self.frame_id += 1
@@ -56,29 +72,94 @@ class SurveillanceCamera(object):
                 return
         self.frame_id = 1
 
-        # Basic image prep
-        #self.orig_image = cv2.flip(self.orig_image, 0)
         image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
-        image_dimensions = self.orig_image.shape  # (h,w,c)
 
         # Person Detection
-        faces, _, face_scores = self.face_predictor.predict(image, 500, 0.9)
+        detected_faces, _, face_scores = self.face_predictor.predict(image, 500, 0.9) #(image, candidate_size/2, threshold)
+        self.track_persons(detected_faces, face_scores)
 
+        if self.interface:
+            x = int(self.orig_image.shape[1] / 12)
+            y = int(self.orig_image.shape[0] / 11)
+            size = int(x / 40)
+            cv2.putText(self.orig_image, "Tracking: {}".format(len(self.tracked_person_list)), (x, y), cv2.FONT_HERSHEY_SIMPLEX, size, (100, 0, 255), int(size))
+            cv2.imshow('Camera {}'.format(self.id), self.orig_image)
+            cv2.waitKey(1)
+
+        if self.record is not None:
+            self.out.write(self.orig_image)
+
+
+        for person in self.tracked_person_list:
+            
+            # Self-destruction of Person objects (if they're not being used)
+            if not person.isAlive():
+                for index in range(len(self.tracked_person_list)):
+                    if self.tracked_person_list[index] == person:
+                        self.tracked_person_list.pop(index)
+                        Person.count -= 1
+                        break
+                continue
+
+            # Look for a badge if it's not yet found
+            if person.hasBadge() is None and person.getBufferOppacity() == person.getMaxBufferSize():
+                
+                det_confidence = self.detect_badges(person, 0.3, False)
+
+            # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
+            if person.hasBadge() and person.badge_number is None or 0:
+                
+                clas_confidence = self.classify_badges(person, 0.8)
+                
+                if person.badge_score is None:
+                    print('Failed to classify badge')
+
+                elif person.badge_score > 0.8:
+                    # Steps to take when the system is confident in the result of the badge detection models
+                    if person.badge_number in self.allowed_badges:
+                        person.clearBuffer('badges')
+                    else:
+                        person.setBadge(False)
+                        print_alert(1, self.id, person.get_id(), det_confidence, person.badge_score)
+                        # ALERT: this person is definitely not supposed to be here
+                else:
+                    # Steps to take when the system is NOT confident in the result of the badge detection models
+                    # For now - check for the badge again
+                    person.badgeCheckCount = 0
+                    person.setBadge(None)
+
+            
+            # if the badge has been checked enough times and not found, report that badge was not found.
+            if person.getBadgeCheckCount() == self.max_badge_check_count:
+                person.badgeCheckCount += 1
+                person.setBadge(False)
+                print_alert(0, self.id, person.get_id(), det_confidence, person.badge_score)
+
+                
+
+
+
+
+    def track_persons(self, detected_faces, face_scores):
+        # Basic image prep
+        #self.orig_image = cv2.flip(self.orig_image, 0)
+        image_dimensions = self.orig_image.shape  # (h,w,c)
+        image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
         # If any persons were detected, track them, and add cutout images to their BUFFER
-        if len(faces) != 0:
+        if len(detected_faces) != 0:
             # Formatting the arrays for (deep)SORT into a numpy array that contains lists of (x1,y1,x2,y2,score)
             face_data = []
-            for i in range(len(faces)):
+            for i in range(len(detected_faces)):
                 # Changing the coordinates to bound the body instead of the face but also ensuring it doesn't go outside of the image bounds
                 # Head to body ratio is ~ 1:4 - 1:8. That can be used to mark the required body size knowing the head measurements
-                ratioW = faces[i][2] - faces[i][0]
-                ratioH = (faces[i][3] - faces[i][1]) * 6
-                faces[i][0] = int(faces[i][0]) - ratioW
-                faces[i][1] = int(faces[i][1])
-                faces[i][2] = int(faces[i][2]) + ratioW
-                faces[i][3] = faces[i][1] + ratioH
-                faces[i] = normalise_bbox(faces[i], image_dimensions)
-                temp = np.append(faces[i], face_scores[i])
+                ratioW = detected_faces[i][2] - detected_faces[i][0]
+                ratioH = (detected_faces[i][3] - detected_faces[i][1]) * 6
+                detected_faces[i][0] = int(detected_faces[i][0]) - ratioW
+                detected_faces[i][1] = int(detected_faces[i][1])
+                detected_faces[i][2] = int(detected_faces[i][2]) + ratioW
+                detected_faces[i][3] = detected_faces[i][1] + ratioH
+                detected_faces[i] = normalise_bbox(detected_faces[i], image_dimensions)
+                temp = np.append(detected_faces[i], face_scores[i])
                 face_data.append(temp)
             face_data = np.array(face_data)
 
@@ -116,15 +197,25 @@ class SurveillanceCamera(object):
                     # If a person was detected with a badge, draw a green box, if was detected to not have a badge - red, if it's still unknown - yellow and save image to BUFFER for further checks
                     if person.hasBadge() is None:
                         person.addImageToBuffer([frame])
-                        color = (255, 255, 0)
-                    elif person.hasBadge() is True:
-                        color = (0, 255, 0)
+                        color = (25, 25, 25)
+                    elif person.badge_number is not None or 0:
+                        if person.badge_number == 1:
+                            color = (255, 139, 61)
+                        elif person.badge_number == 2:
+                            color = (49, 131, 239)
+                        elif person.badge_number == 3:
+                            color = (17, 119, 6)
+                        elif person.badge_number == 4:
+                            color = (119, 6, 10)
+                        elif person.badge_number == 5:
+                            color = (225, 86, 220)
                     else:
                         color = (0, 0, 255)
 
                     cv2.rectangle(self.orig_image, (xP, yP), (x1P, y1P), color, 2)
-                    cv2.putText(self.orig_image, ('person {}'.format(person_id)), (xP, yP), cv2.FONT_HERSHEY_SIMPLEX,
-                                0.7, color, 2)
+                    cv2.putText(self.orig_image, ('person id: {}'.format(person_id)), (xP, yP), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                    cv2.putText(self.orig_image, ('badge score: {}'.format(person.badge_score)), (xP, y1P), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
             else:
                 # Cover the scenario where there are people detected, but they couldn't be tracked
                 pass
@@ -132,107 +223,94 @@ class SurveillanceCamera(object):
             # Cover the scanario where no people were detected - perhaps a "hibernation" mode approach (start checking only once every 3 seconds instead of every frame)
             pass
 
-        if self.interface:
-            x = int(self.orig_image.shape[1] / 12)
-            y = int(self.orig_image.shape[0] / 11)
-            size = int(x / 40)
-            cv2.putText(self.orig_image, "Tracking: {}".format(len(self.tracked_person_list)), (x, y),
-                        cv2.FONT_HERSHEY_SIMPLEX, size, (100, 0, 255), int(size))
-            cv2.imshow('Camera {}'.format(self.id), self.orig_image)
-            # QUESTION
-            # added a waitkey here because otherwise the visual interface freezes after a badge is found. But why? When a badge is found that's exactly when there's supposed to be less computation going on, i.e. the program should run smoother
-            cv2.waitKey(1)
+    def detect_badges(self, person, threshold=0.3, save_cutouts=True):
 
-        if self.record is not None:
-            self.out.write(self.orig_image)
+        image_batch_tensor = person.getBuffer()
+        score_list = []
+        confidence = 0
+        # Detection
+        for image_id in range(person.getMaxBufferSize()):
+            
+            with no_grad():
+                badge_bbox_prediction = self.badge_predictor(image_batch_tensor[image_id])
+            
+            person_cutout = person.getImage(image_id)
+            for element in range(len(badge_bbox_prediction[0]["boxes"])):
+                badge_score = np.round(badge_bbox_prediction[0]["scores"][element].item(), decimals=2)
+                if badge_score >= threshold:
+                    badges = badge_bbox_prediction[0]["boxes"][element].cpu().numpy()
+                    xB = int(badges[0])
+                    yB = int(badges[1])
+                    x1B = int(badges[2])
+                    y1B = int(badges[3])
+                    badge_cutout = person_cutout[yB:y1B, xB:x1B]
+                    score_list.append(badge_score)
+                    # Saving image cutouts of badge and person with a badge for future retraining of detection model
+                    if save_cutouts:
+                        now = datetime.now()
+                        current_time = now.strftime(r'%d-%m-%Y_%H-%M-%S')
+                        rint = randint(1, 1000)
+                        label = str(current_time) + str(rint)
+                        path = os.path.join('output', 'badges', '{}.jpg'.format(label))
+                        cv2.imwrite(path, badge_cutout)
+                        path = os.path.join('output', 'person_cutouts', '{}.jpg'.format(label))
+                        cv2.imwrite(path, person_cutout)
 
-        # Check the buffer size for each person, if available, check for their badges
-        for person in self.tracked_person_list:
+                    if self.interface:
+                        cv2.rectangle(person_cutout, (xB, yB), (x1B, y1B), (0, 0, 255), 2)
+                        cv2.putText(person_cutout, ('badge: ' + str(badge_score)), (xB, yB), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-            # Self-destruction of Person objects (if they're not being used)
-            if not person.isAlive():
-                for index in range(len(self.tracked_person_list)):
-                    if self.tracked_person_list[index] == person:
-                        self.tracked_person_list.pop(index)
-                        Person.count -= 1
-                        break
-                continue
+                    badge_cutout = cv2.cvtColor(badge_cutout, cv2.COLOR_BGR2RGB)
+                    person.addBadgeToBuffer([image_loader(badge_cutout, resize=False)])
+        
+        # Eval
+        if len(score_list) > 0:
+            confidence = sum(score_list)/len(score_list)
+            person.badge = True
+            person.clearBuffer()
 
-            if person.hasBadge():
-                # Exit the loop
-                continue
+        person.badgeCheckCount += 1
 
-            if person.hasBadge() is None and person.getBufferOppacity() == person.getMaxBufferSize():
-                image_batch = person.getBuffer()
+        return confidence
 
-                # Badge Detection
-                for image_id in range(person.getMaxBufferSize()):
+    def classify_badges(self, person, threshold = 0.9):
 
-                    with no_grad():
-                        badge_prediction = self.badge_predictor(image_batch[image_id])
+        image_batch_tensor = person.getBuffer('badges')
+        badge_dict = {'labels': [], 'scores': []}
+        confidence = 0
+        
+        # Detection 
+        for image_id in range(person.getBufferOppacity('badges')):
 
-                    cutout_image = person.getImage(image_id)
-                    for element in range(len(badge_prediction[0]["boxes"])):
-                        badge_score = np.round(badge_prediction[0]["scores"][element].cpu().numpy(), decimals=2)
-                        if badge_score > 0.4:
-                            badges = badge_prediction[0]["boxes"][element].cpu().numpy()
-                            #badges = badges / (self.orig_image.shape[0] / cutout_image.shape[0])
-                            xB = int(badges[0])  # + xP - 10
-                            yB = int(badges[1])  # + yP - 10
-                            x1B = int(badges[2])  # + xP + 10
-                            y1B = int(badges[3])  # + yP + 10
-                            person.addScoreToBuffer(badge_score)
+            with no_grad():
+                badge_class_prediction = self.badge_classifier(image_batch_tensor[image_id])
 
-                            now = datetime.now()
-                            current_time = now.strftime(r'%d-%m-%Y_%H-%M-%S')
-                            rint = randint(1, 1000)
-                            label = str(current_time) + str(rint)
-                            badge_cutout = cutout_image[yB:y1B, xB:x1B]
-                            path = os.path.join('/Users/nkybartas/Documents/GitHub/badge-detection/output', 'badges', '{}.jpg'.format(label))
-                            cv2.imwrite(path, badge_cutout)
-                            path = os.path.join('/Users/nkybartas/Documents/GitHub/badge-detection/output', 'person_cutouts', '{}.jpg'.format(label))
-                            cv2.imwrite(path, cutout_image)
-                            cv2.rectangle(cutout_image, (xB, yB), (x1B, y1B), (0, 0, 255), 2)
-                            cv2.putText(cutout_image, ('badge: ' + str(badge_score)), (xB, yB),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            for element in range(len(badge_class_prediction[0]["labels"])):
+                badge_score = np.round(badge_class_prediction[0]["scores"][element].item(), decimals=2)
+                if badge_score >= threshold:
+                    badge_dict['labels'].append(badge_class_prediction[0]['labels'][element].item())
+                    badge_dict['scores'].append(badge_score)
+        
+        # Eval
+        if len(badge_dict['labels']) > 0:
+            
+            predicted_badge_number = mode(badge_dict['labels'])
 
-                    # Demo-ing the BUFFER
-                    windowName = 'person {}'.format(person.get_id())
-                    cv2.imshow(windowName, cutout_image)
-                    cv2.waitKey(1)
-                cv2.destroyWindow(windowName)
+            score_list=[]
+            for idx in range(len(badge_dict['labels'])):
+                if badge_dict['labels'][idx] == predicted_badge_number:
+                    score_list.append(badge_dict['scores'][idx])
+            confidence = sum(score_list)/len(score_list)
 
-                # Badge Evaluation
-                if person.getBufferOppacity(badges=True) > 0:
-                    confidence = sum(person.getBuffer(badges=True)) / person.getBufferOppacity(badges=True)
-                    if confidence >= 0.6:
-                        #
-                        # implement badge classification here
-                        #
-                        value = True
-                        person.clearBuffer(badges=True)
-                        # print("Person {} is wearing a SBP badge. Confidence: {}".format(person.get_id(), np.round(confidence, decimals=2)))
-                    elif confidence >= 0.4:
-                        value = None
-                        # print("Can't distinguish whether person {} is wearing a badge. Checking again".format(person.get_id()))
-                    else:
-                        value = None
-                        # print("Person {} is not wearing a SBP badge".format(person.get_id()))
-                    person.clearBuffer()
-                    person.setBadge(value)
-                else:
-                    person.setBadge(None)
-                    # print("Person {} is not wearing a SBP badge".format(person.get_id()))
-
-                # if the badge has been checked enough times and not found, report that badge was not found.
-                if person.getBadgeCheckCount() == self.max_badge_check_count:
-                    print("ALERT")
-                    print("Camera {} found that person {} does not have a badge".format(self.id, person.get_id()))
-                    person.setBadge(False)
+            person.badge_score = confidence
+            person.badge_number = predicted_badge_number
+ 
+        return confidence
 
     def __del__(self):
         print("Camera {} turned off".format(self.id))
         if self.record is not None:
+            print('Recording saved')
             self.out.release()
         if self.interface:
             self.cap.release()
