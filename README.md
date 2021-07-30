@@ -45,6 +45,14 @@ That's when we started looking for a new approach and the mobilenet-v3 seems to 
 - retrained the mobilenet on the new data, which drastically improved the model's performance (it's now equally as precise as the resnet50), and converted the FP32 weights to FP16, which resulted in no quality loss, but halfed the amount of computation required to check the badges. The new model weights are saved under mobilenet_v2
 - TODO: investigate weight conversion to uint8
 
+## Update (29 July 2021):
+- added badge classification. The classifier model has very high accuracy for SBP badges (~90-99%)
+- the bounding boxes are now painted in the color of the detected badge, or red for no badge, black for persons being checked
+- fixed the recording func
+
+## Update (30 July 2021):
+- buffer now stores data after the image has been scanned, instead of the image
+
 ## [ultra-lightweight face detection model](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
 This model is a lightweight facedetection model designed for edge computing devices.
 - In terms of model size, the default FP32 precision (.pth) file size is **1.04~1.1MB**, and the inference framework int8 quantization size is about **300KB**.

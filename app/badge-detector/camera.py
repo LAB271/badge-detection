@@ -8,7 +8,7 @@ from torch import no_grad
 from random import randint
 from person import Person
 from sort.sort import Sort
-from utils import normalise_bbox, image_loader, badge_num_to_color, print_alert
+from utils import normalise_bbox, image_loader, badge_num_to_color, print_alert, flatten_list, tensor_to_image
 from statistics import mode
 
 
@@ -101,15 +101,32 @@ class SurveillanceCamera(object):
                         break
                 continue
 
-            # Look for a badge if it's not yet found
-            if person.hasBadge() is None and person.getBufferOppacity() == person.getMaxBufferSize():
-                
-                det_confidence = self.detect_badges(person, 0.3, False)
+            # Look for a badge if the person hasn't been found to have one yet
+            if person.hasBadge() is None:
+                person_cutout = person.getImage(len(person.buffer)-1, formated=False)
+                scan_data = self.detect_badge(person_cutout)
+                person.addScanDataToBuffer(scan_data) 
+
+                # If there's enough data in the buffer to proceed, make a conclusion about the badges
+                if person.getBufferOppacity('scan') == person.max_buffer_size:
+                    
+                    score_list = person.getBuffer('scanned scores')
+                    detection_results = self.evaluate_detected_badges(score_list)
+
+                    if detection_results is not None:
+                        person.badge = True
+                    else:
+                        pass
+                    person.badge_check_count+=1
 
             # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
             if person.hasBadge() and person.badge_number is None or 0:
-                
-                clas_confidence = self.classify_badges(person, 0.8)
+            
+                badge_cutout = person.getImage(person.getBufferOppacity('scan')-1, formated=False, value='scan')
+                label_list, score_list = self.classify_badge(badge_cutout, threshold=0.9)
+                badge_number, confidence = self.evaluate_classified_badges(label_list, score_list)
+                person.badge_number = badge_number
+                person.badge_score = confidence
                 
                 if person.badge_score is None:
                     print('Failed to classify badge')
@@ -117,23 +134,23 @@ class SurveillanceCamera(object):
                 elif person.badge_score > 0.8:
                     # Steps to take when the system is confident in the result of the badge detection models
                     if person.badge_number in self.allowed_badges:
-                        person.clearBuffer('badges')
+                        person.clearBuffer()
                     else:
                         person.setBadge(False)
-                        print_alert(1, self.id, person.get_id(), det_confidence, person.badge_score)
+                        print_alert(1, self.id, person.get_id(), detection_results, person.badge_score)
                         # ALERT: this person is definitely not supposed to be here
                 else:
                     # Steps to take when the system is NOT confident in the result of the badge detection models
                     # For now - check for the badge again
-                    person.badgeCheckCount = 0
+                    person.badge_check_count = 0
                     person.setBadge(None)
 
             
             # if the badge has been checked enough times and not found, report that badge was not found.
-            if person.getBadgeCheckCount() == self.max_badge_check_count:
-                person.badgeCheckCount += 1
+            if person.hasBadge() is None and person.badge_check_count == self.max_badge_check_count:
+                person.badge_check_count += 1
                 person.setBadge(False)
-                print_alert(0, self.id, person.get_id(), det_confidence, person.badge_score)
+                print_alert(0, self.id, person.get_id(), detection_results, person.badge_score)
 
                 
 
@@ -223,89 +240,88 @@ class SurveillanceCamera(object):
             # Cover the scanario where no people were detected - perhaps a "hibernation" mode approach (start checking only once every 3 seconds instead of every frame)
             pass
 
-    def detect_badges(self, person, threshold=0.3, save_cutouts=True):
+    def detect_badge(self, person_cutout, threshold=0.4, save_cutout=False):
 
-        image_batch_tensor = person.getBuffer()
-        score_list = []
-        confidence = 0
-        # Detection
-        for image_id in range(person.getMaxBufferSize()):
-            
-            with no_grad():
-                badge_bbox_prediction = self.badge_predictor(image_batch_tensor[image_id])
-            
-            person_cutout = person.getImage(image_id)
-            for element in range(len(badge_bbox_prediction[0]["boxes"])):
-                badge_score = np.round(badge_bbox_prediction[0]["scores"][element].item(), decimals=2)
-                if badge_score >= threshold:
-                    badges = badge_bbox_prediction[0]["boxes"][element].cpu().numpy()
-                    xB = int(badges[0])
-                    yB = int(badges[1])
-                    x1B = int(badges[2])
-                    y1B = int(badges[3])
-                    badge_cutout = person_cutout[yB:y1B, xB:x1B]
-                    score_list.append(badge_score)
-                    # Saving image cutouts of badge and person with a badge for future retraining of detection model
-                    if save_cutouts:
-                        now = datetime.now()
-                        current_time = now.strftime(r'%d-%m-%Y_%H-%M-%S')
-                        rint = randint(1, 1000)
-                        label = str(current_time) + str(rint)
-                        path = os.path.join('output', 'badges', '{}.jpg'.format(label))
-                        cv2.imwrite(path, badge_cutout)
-                        path = os.path.join('output', 'person_cutouts', '{}.jpg'.format(label))
-                        cv2.imwrite(path, person_cutout)
+        scan_data = {'score': [], 'badge_cutout': []}
 
-                    if self.interface:
-                        cv2.rectangle(person_cutout, (xB, yB), (x1B, y1B), (0, 0, 255), 2)
-                        cv2.putText(person_cutout, ('badge: ' + str(badge_score)), (xB, yB), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        with no_grad():
+            badge_bbox_prediction = self.badge_predictor([image_loader(person_cutout)])
 
-                    badge_cutout = cv2.cvtColor(badge_cutout, cv2.COLOR_BGR2RGB)
-                    person.addBadgeToBuffer([image_loader(badge_cutout, resize=False)])
+        for element in range(len(badge_bbox_prediction[0]["boxes"])):
+            score = np.round(badge_bbox_prediction[0]["scores"][element].item(), decimals=2)
+            if score >= threshold:
+                badges = badge_bbox_prediction[0]["boxes"][element].cpu().numpy()
+                xB = int(badges[0])
+                yB = int(badges[1])
+                x1B = int(badges[2])
+                y1B = int(badges[3])
+                person_cutout = tensor_to_image(person_cutout)
+                badge_cutout = person_cutout[yB:y1B, xB:x1B]
+                scan_data['score'].append(score)
+                scan_data['badge_cutout'].append(badge_cutout)
+                
+                # Saving image cutouts of badge and person with a badge for future retraining of detection model
+                if save_cutout:
+                    label = str(datetime.now().strftime(r'%d-%m-%Y_%H-%M-%S')) + str(randint(1, 1000))
+                    path = os.path.join('output', 'badges', '{}.jpg'.format(label))
+                    cv2.imwrite(path, badge_cutout)
+                    path = os.path.join('output', 'person_cutouts', '{}.jpg'.format(label))
+                    cv2.imwrite(path, person_cutout)
+
+        return scan_data
+
+    def evaluate_detected_badges(self, badge_score_list, threshold=None):
+
+        if len(badge_score_list) > 0:
+            confidence = sum(badge_score_list)/len(badge_score_list)
+
+            # Optional: check whether the score is higher than threshold
+            if threshold is not None:
+                if confidence < threshold:
+                    return None
+
+            return confidence
         
-        # Eval
-        if len(score_list) > 0:
-            confidence = sum(score_list)/len(score_list)
-            person.badge = True
-            person.clearBuffer()
+        return None
 
-        person.badgeCheckCount += 1
 
-        return confidence
+    def classify_badge(self, badge_cutout, threshold=0.8):
 
-    def classify_badges(self, person, threshold = 0.9):
+        scan_data = {'label': [], 'score': []}
 
-        image_batch_tensor = person.getBuffer('badges')
-        badge_dict = {'labels': [], 'scores': []}
-        confidence = 0
-        
-        # Detection 
-        for image_id in range(person.getBufferOppacity('badges')):
+        with no_grad():
+                badge_class_prediction = self.badge_classifier([image_loader(badge_cutout, resize=False)])
 
-            with no_grad():
-                badge_class_prediction = self.badge_classifier(image_batch_tensor[image_id])
-
-            for element in range(len(badge_class_prediction[0]["labels"])):
+        for element in range(len(badge_class_prediction[0]["labels"])):
                 badge_score = np.round(badge_class_prediction[0]["scores"][element].item(), decimals=2)
                 if badge_score >= threshold:
-                    badge_dict['labels'].append(badge_class_prediction[0]['labels'][element].item())
-                    badge_dict['scores'].append(badge_score)
-        
-        # Eval
-        if len(badge_dict['labels']) > 0:
-            
-            predicted_badge_number = mode(badge_dict['labels'])
+                    scan_data['label'].append(badge_class_prediction[0]['labels'][element].item())
+                    scan_data['score'].append(badge_score)
 
-            score_list=[]
-            for idx in range(len(badge_dict['labels'])):
-                if badge_dict['labels'][idx] == predicted_badge_number:
-                    score_list.append(badge_dict['scores'][idx])
+        return scan_data['label'], scan_data['score']
+
+
+    def evaluate_classified_badges(self, badge_class_list, class_score_list, threshold=None):
+        
+        if len(class_score_list) > 0:
+            
+            predicted_badge_number = mode(badge_class_list)
+
+            score_list = []
+            for idx in range(len(badge_class_list)):
+                if badge_class_list[idx] == predicted_badge_number:
+                    score_list.append(class_score_list[idx])
             confidence = sum(score_list)/len(score_list)
 
-            person.badge_score = confidence
-            person.badge_number = predicted_badge_number
- 
-        return confidence
+            # Check whether the result is higher than a given threshold
+            if threshold is not None:
+                if confidence < threshold:
+                    return None, None
+
+            return predicted_badge_number, confidence
+
+        return None, None
+        
 
     def __del__(self):
         print("Camera {} turned off".format(self.id))
