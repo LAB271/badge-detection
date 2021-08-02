@@ -1,7 +1,7 @@
 from cv2 import cvtColor, COLOR_RGB2BGR
 from numpy import array
 from torchvision import transforms
-from utils import flatten_list
+from app.detector.utils import flatten_list
 
 
 class Person(object):

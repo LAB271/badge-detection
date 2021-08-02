@@ -6,9 +6,9 @@ import numpy as np
 from numpy.core.fromnumeric import nonzero
 from torch import no_grad
 from random import randint
-from person import Person
+from app.detector.person import Person
 from sort.sort import Sort
-from utils import normalise_bbox, image_loader, badge_num_to_color, print_alert, flatten_list, tensor_to_image
+from app.detector.utils import normalise_bbox, image_loader, badge_num_to_color, print_alert, flatten_list, tensor_to_image
 from statistics import mode
 
 
@@ -56,12 +56,10 @@ class SurveillanceCamera(object):
         ret, self.orig_image = self.cap.read()
         if ret is False:
             # Implement some sort of restart system here. Security cameras should not ever be turned off
-            print("Exiting. Code 0")
             if self.record is not None:
                 self.out.release()
             if self.interface:
                 self.cap.release()
-            sleep(10)
             return
 
         # FPS Control.
@@ -69,7 +67,8 @@ class SurveillanceCamera(object):
         for i in range(2, self.frames_to_skip + 1):
             if self.frame_id % i == 0:
                 # print("skipped frame {}".format(self.frame_id))
-                return
+                #return
+                pass
         self.frame_id = 1
 
         image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
@@ -152,6 +151,7 @@ class SurveillanceCamera(object):
                 person.setBadge(False)
                 print_alert(0, self.id, person.get_id(), detection_results, person.badge_score)
 
+        return True, self.orig_image
                 
 
 
@@ -319,9 +319,14 @@ class SurveillanceCamera(object):
                     return None, None
 
             return predicted_badge_number, confidence
-
         return None, None
-        
+
+    def read_frame(self, read=True):
+        while read:
+            _, buffer = cv2.imencode('.jpg', self.orig_image)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     def __del__(self):
         print("Camera {} turned off".format(self.id))
