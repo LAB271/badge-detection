@@ -3,13 +3,15 @@ from datetime import datetime
 from time import sleep
 import cv2
 import numpy as np
-from numpy.core.fromnumeric import nonzero
 from torch import no_grad
 from random import randint
 from app.detector.person import Person
 from sort.sort import Sort
 from app.detector.utils import normalise_bbox, image_loader, badge_num_to_color, print_alert, flatten_list, tensor_to_image
 from statistics import mode
+from threading import Thread
+import multiprocessing as mp
+import app.detector.vid_streamv3 as vs
 
 
 class SurveillanceCamera(object):
@@ -23,9 +25,16 @@ class SurveillanceCamera(object):
         self.object_lifetime = object_lifetime
         self.max_badge_check_count = max_badge_check_count
         self.interface = interface
-        self.cap = cv2.VideoCapture(path_to_stream)
+        #self.cap = cv2.VideoCapture(path_to_stream)
         #self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
         self.record = record
+
+
+        self.camProcess = None
+        self.cam_queue = None
+        self.stopbit = None
+        self.camlink = path_to_stream
+        self.framerate = wanted_fps
 
         if self.record is not None:
             now = datetime.now()
@@ -47,29 +56,33 @@ class SurveillanceCamera(object):
         SurveillanceCamera.count += 1
         self.frames_to_skip = int(camera_fps / wanted_fps)
         self.orig_image = None
+        self.last_read_frame = None
+        self.stopped = False
+        self.fps = FPS()
 
+    def update(self):  
 
+        self.fps.start()
+        self.orig_image = self.last_read_frame
+        if self.orig_image is None:
+            return None
 
-
-
-    def update(self):
-        ret, self.orig_image = self.cap.read()
-        if ret is False:
+        '''if ret is False:
             # Implement some sort of restart system here. Security cameras should not ever be turned off
             if self.record is not None:
                 self.out.release()
             if self.interface:
                 self.cap.release()
-            return
+            return'''
 
-        # FPS Control.
+        '''# FPS Control.
         self.frame_id += 1
         for i in range(2, self.frames_to_skip + 1):
             if self.frame_id % i == 0:
                 # print("skipped frame {}".format(self.frame_id))
                 #return
                 pass
-        self.frame_id = 1
+        self.frame_id = 1'''
 
         image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
 
@@ -151,11 +164,9 @@ class SurveillanceCamera(object):
                 person.setBadge(False)
                 print_alert(0, self.id, person.get_id(), detection_results, person.badge_score)
 
-        return True, self.orig_image
-                
-
-
-
+        self.fps.stop()
+        cv2.putText(self.orig_image, ('fps: {}'.format(self.fps.fps())), (15, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 2)
+        return True
 
     def track_persons(self, detected_faces, face_scores):
         # Basic image prep
@@ -275,7 +286,6 @@ class SurveillanceCamera(object):
         if len(badge_score_list) > 0:
             confidence = sum(badge_score_list)/len(badge_score_list)
 
-            # Optional: check whether the score is higher than threshold
             if threshold is not None:
                 if confidence < threshold:
                     return None
@@ -283,7 +293,6 @@ class SurveillanceCamera(object):
             return confidence
         
         return None
-
 
     def classify_badge(self, badge_cutout, threshold=0.8):
 
@@ -300,7 +309,6 @@ class SurveillanceCamera(object):
 
         return scan_data['label'], scan_data['score']
 
-
     def evaluate_classified_badges(self, badge_class_list, class_score_list, threshold=None):
         
         if len(class_score_list) > 0:
@@ -313,7 +321,6 @@ class SurveillanceCamera(object):
                     score_list.append(class_score_list[idx])
             confidence = sum(score_list)/len(score_list)
 
-            # Check whether the result is higher than a given threshold
             if threshold is not None:
                 if confidence < threshold:
                     return None, None
@@ -321,7 +328,54 @@ class SurveillanceCamera(object):
             return predicted_badge_number, confidence
         return None, None
 
-    def read_frame(self, read=True):
+
+    def start(self):
+        self.cam_queue = mp.Queue(maxsize=100)
+        self.stopbit = mp.Event()
+        self.camProcess = vs.StreamCapture(self.camlink,
+                             self.stopbit,
+                             self.cam_queue,
+                            self.framerate)
+        self.camProcess.start()
+        print("Camera {} started".format(self.id))
+
+    def read_frame(self):
+        if not self.cam_queue.empty():
+            cmd, val = self.cam_queue.get()
+            if cmd == vs.StreamCommands.FRAME:
+                if val is not None:
+                    self.last_read_frame = val
+
+
+
+
+
+
+    '''def start(self):
+		# start the thread to read frames from the video stream
+        Thread(target=self.read_frame, args=()).start()
+        print("Camera {} started".format(self.id))
+        return self
+
+    def read_frame(self):
+
+		# keep looping infinitely until the thread is stopped
+        while True:
+            # if the thread indicator variable is set, stop the thread
+            if self.stopped:
+                return
+            # otherwise, read the next frame from the stream
+            self.grabbed, self.last_read_frame = self.cap.read()
+	
+    def get_last_read_frame(self):
+        # return the frame most recently read
+        return self.frame
+
+    def stop(self):
+        # indicate that the thread should be stopped
+        self.stopped = True'''
+
+    def get_frame_bytes(self, read=True):
         while read:
             _, buffer = cv2.imencode('.jpg', self.orig_image)
             frame = buffer.tobytes()
@@ -335,5 +389,32 @@ class SurveillanceCamera(object):
             self.out.release()
         if self.interface:
             self.cap.release()
-        cv2.destroyWindow('Camera {}'.format(self.id))
+            cv2.destroyWindow('Camera {}'.format(self.id))
         SurveillanceCamera.count -= 1
+
+
+class FPS:
+	def __init__(self):
+		# store the start time, end time, and total number of frames
+		# that were examined between the start and end intervals
+		self._start = None
+		self._end = None
+		self._numFrames = 0
+	def start(self):
+		# start the timer
+		self._start = datetime.now()
+		return self
+	def stop(self):
+		# stop the timer
+		self._end = datetime.now()
+	def update(self):
+		# increment the total number of frames examined during the
+		# start and end intervals
+		self._numFrames += 1
+	def elapsed(self):
+		# return the total number of seconds between the start and
+		# end interval
+		return (self._end - self._start).total_seconds()
+	def fps(self):
+		# compute the (approximate) frames per second
+		return self._numFrames / self.elapsed()

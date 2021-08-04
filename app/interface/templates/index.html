@@ -24,8 +24,8 @@
             <div class="carousel-item {% if camera_id == 0 %} active {% endif %}" id="slide{{ camera_id }}">
               <img class="d-block w-100" src="{{ url_for('video_feed', cam_id=camera_id) }}" width="40%" height="40%"> 
               <div class="carousel-caption d-none d-md-block">
-                <h5 style="color:#FF0000">Camera {{camera_id}}</h5>
-                <p style="color:#FF0000">-In progress-</p>
+                <h5 style="color:#FF0000">Camera {{camera_list[camera_id].id}}</h5>
+                <p style="color:#FF0000">--Tracking in progress--</p>
               </div>
             </div>
 
