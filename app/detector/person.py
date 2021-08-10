@@ -21,9 +21,6 @@ class Person(object):
         self.age = 0
         Person.count += 1
 
-        # TODO: implement classification model functionality
-        # self.badgeColor = None
-
     def get_id(self):
         return self.id
 
@@ -91,9 +88,8 @@ class Person(object):
 
     def setBadge(self, value=None, badge_number=None):
         if value is None:
-            self.badge_check_count += 1
-        if badge_number is not None:
-            self.badge_number = badge_number
+            pass
+            #self.badge_check_count += 1
         self.badge = value
 
     # Check whether the object is still being tracked
@@ -106,4 +102,4 @@ class Person(object):
 
     def __del__(self):
         # print("Deleting person {} from memory".format(self.get_id()))
-        pass
+        Person.count -= 1

@@ -4,6 +4,8 @@ from torch.autograd import Variable
 from torchvision import transforms
 from cv2 import cvtColor, COLOR_RGB2BGR
 from numpy import array
+from io import BytesIO
+import numpy as np
 
 # loads an image and returns a tensor
 # (automatically scales to required input size, therefore any image can be passed forward to the model)
@@ -29,6 +31,11 @@ def tensor_to_image(tensor, cv2=False):
         image = cvtColor(image, COLOR_RGB2BGR)
     return image
 
+def save_cv2image(img):
+    rescaled = (255.0 / img.max() * (img - img.min())).astype(np.uint8)
+    im = Image.fromarray(rescaled)
+    im.save('out.png')
+
 # Make sure all bbox coordinates are inside the image
 def normalise_bbox(bbox, image_dimensions):
     if bbox[0] < 0:
@@ -48,6 +55,9 @@ def badge_num_to_color(idx):
 def flatten_list(list):
     return [item for sublist in list for item in sublist]
 
+def bytes_to_image(bytes):
+    return Image.open(BytesIO(bytes)).convert('RGB')
+
 def print_alert(code, camera_id, person_id, det_conf = None, clas_conf = None):
 
     print("")
@@ -56,19 +66,19 @@ def print_alert(code, camera_id, person_id, det_conf = None, clas_conf = None):
     print("")
     print("")
     print("")
-    
+    print("-------------------------ALERT----------------------")
     if code == 0:
-        det_conf = "{}%".format(round(100 - det_conf*100), 2)
-        clas_conf = "-" if clas_conf is None else "{}%".format(round(clas_conf), 2)
-        print("-------------------------ALERT----------------------")
         print("Camera {} found that person {} does not have a badge".format(camera_id, person_id))
-        print("DETECTOR confidence: {}  CLASSIFIER confidence: {}".format(det_conf, clas_conf))
 
     elif code == 1:
-        print("-------------------------ALERT------------------------")
         print("Camera {} found that person {} is in a restricted area".format(camera_id, person_id))
-        print("DETECTOR confidence: {}%  CLASSIFIER confidence: {}%".format(round(det_conf*100, 2), round(clas_conf*100, 2)))
 
+    elif code == 2:
+        print("Camera {} found that person {} might have a badge but it is not a valid SBP badge".format(camera_id, person_id))
+    
+    det_conf = "-" if det_conf is None else "{}%".format(round(100 - det_conf*100), 2)
+    clas_conf = "-" if clas_conf is None else "{}%".format(round(clas_conf), 2)
+    print("DETECTOR confidence: {}  CLASSIFIER confidence: {}".format(det_conf, clas_conf))
     print("")
     print("")
     print("")

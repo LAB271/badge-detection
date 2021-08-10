@@ -53,6 +53,9 @@ That's when we started looking for a new approach and the mobilenet-v3 seems to 
 ## Update (30 July 2021):
 - buffer now stores data after the image has been scanned, instead of the image
 
+## Update (10 August 2021):
+- Added custom Gstreamer pipeline for streaming from RTSP cameras instead of using openCV's. There is a significant improvement in speed, as the camera stream is handled in "parallel" with the camera update function.
+
 ## [ultra-lightweight face detection model](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
 This model is a lightweight facedetection model designed for edge computing devices.
 - In terms of model size, the default FP32 precision (.pth) file size is **1.04~1.1MB**, and the inference framework int8 quantization size is about **300KB**.
