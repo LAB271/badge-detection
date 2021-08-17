@@ -6,6 +6,7 @@ from cv2 import cvtColor, COLOR_RGB2BGR
 from numpy import array
 from io import BytesIO
 import numpy as np
+import cv2
 
 # loads an image and returns a tensor
 # (automatically scales to required input size, therefore any image can be passed forward to the model)
@@ -55,8 +56,21 @@ def badge_num_to_color(idx):
 def flatten_list(list):
     return [item for sublist in list for item in sublist]
 
-def bytes_to_image(bytes):
+def bytes_to_pil_image(bytes):
     return Image.open(BytesIO(bytes)).convert('RGB')
+
+def bytes_to_array(bytes):
+    return cv2.cvtColor(cv2.imdecode(np.frombuffer(bytes, np.uint8), -1), cv2.COLOR_BGR2RGB)
+    
+def compare_img(bytes):
+    image = Image.open(BytesIO(bytes)).convert('RGB')   
+    array_from_pil_image = np.array(image)
+    img_array = cv2.imdecode(np.frombuffer(bytes, np.uint8), -1)
+    print(array_from_pil_image[5:])
+    print("-----")
+    print(img_array[5:])
+    
+
 
 def print_alert(code, camera_id, person_id, det_conf = None, clas_conf = None):
 

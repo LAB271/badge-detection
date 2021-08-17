@@ -12,8 +12,8 @@ app = Flask(__name__)
 PATH_TO_RTSP_HIKVSION_DOME_CAMERA = 'rtsp://readonly:5hVUlm3S7o92@10.32.8.50/Streaming/channels/101'
 
 # Increasing any of these values results in a better accuracy, however slower speeds
-BUFFER = 10  # max image buffer capacity
-OBJECT_LIFETIME = 5  # How long should the tracker still try to find a lost tracked person (measured in frames)
+BUFFER = 7  # max image buffer capacity
+OBJECT_LIFETIME = 10  # How long should the tracker still try to find a lost tracked person (measured in frames)
 MAX_BADGE_CHECK_COUNT = 3  # How many times a full BUFFER should be checked before a person is declared to be an imposter
 
 for _ in range(10):

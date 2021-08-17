@@ -10,18 +10,24 @@ test_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
 class PersonDetector:
-    def __init__(self, image_size=1280, candidate_size=1000):
+    def __init__(self, net_type = 'RFB', image_size=640, candidate_size=1000):
         define_img_size(image_size)
         from app.models.faceDetection.vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd, \
             create_Mb_Tiny_RFB_fd_predictor
-
-        model_path = "app/models/faceDetection/version-RFB-640.pth"
+        from app.models.faceDetection.vision.ssd.mb_tiny_fd import create_mb_tiny_fd, create_mb_tiny_fd_predictor
+        if net_type == 'slim':
+            model_path = "app/models/faceDetection/version-slim-320.pth"
+            # model_path = "models/pretrained/version-slim-640.pth"
+            net = create_mb_tiny_fd(2, is_test=True, device=test_device)
+            self.model = create_mb_tiny_fd_predictor(net, candidate_size=candidate_size, device=test_device)
+        elif net_type == 'RFB':
+            model_path = "app/models/faceDetection/version-RFB-640.pth"
+            # model_path = "models/pretrained/version-RFB-640.pth"
+            net = create_Mb_Tiny_RFB_fd(2, is_test=True, device=test_device)
+            self.model = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=candidate_size, device=test_device)
+        
         class_names = ['BACKGROUND', 'face']
-        num_classes = len(class_names)
-        net = create_Mb_Tiny_RFB_fd(num_classes, is_test=True, device=test_device)
-        self.model = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=candidate_size, device=test_device)
         net.load(model_path)
-
         print('Person detection model loaded')
 
 
