@@ -2,7 +2,8 @@
 output
 workspace.code-workspace
 trash
-temp*
+temporary*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
