@@ -1,22 +1,23 @@
-import os
 from datetime import datetime
-from time import sleep
+from statistics import mode
+
 import cv2
 import numpy as np
-from torch import no_grad
-from random import randint
-from app.detector.person import Person
-from sort.sort import Sort
-from app.detector.utils import normalise_bbox, image_loader, badge_num_to_color, print_alert, flatten_list, tensor_to_image, bytes_to_image, save_cv2image
-from statistics import mode
-from app.gstreamer import pipeline
 from gi.repository import GstApp
+from torch import no_grad
+
+from app.detector.person import Person
+from app.detector.utils import normalise_bbox, image_loader, print_alert, flatten_list, \
+    tensor_to_image, bytes_to_image
+from app.gstreamer import pipeline
+from sort.sort import Sort
 
 
 class SurveillanceCamera(object):
     count = 0
 
-    def __init__(self, id, face_predictor, badge_predictor, badge_classifier, allowed_badges, path_to_stream, buffer_size,
+    def __init__(self, id, face_predictor, badge_predictor, badge_classifier, allowed_badges, path_to_stream,
+                 buffer_size,
                  object_lifetime, max_badge_check_count):
 
         self.id = id
@@ -45,9 +46,10 @@ class SurveillanceCamera(object):
         self.last_updated_frame = None
         SurveillanceCamera.count += 1
         self.fps = FPS()
+        self.read_frames_fps = FPS()
         self.frame_id = 0
 
-    def update(self):  
+    def update(self):
         # Start FPS count engine
         if self.frame_id == 0:
             self.fps.start()
@@ -61,11 +63,12 @@ class SurveillanceCamera(object):
         self.orig_image = np.array(self.last_read_frame)
 
         # Person detection and tracking
-        detected_faces, _, face_scores = self.face_predictor.predict(self.orig_image, 500, 0.9) #(image, candidate_size/2, threshold)
+        detected_faces, _, face_scores = self.face_predictor.predict(self.orig_image, 500,
+                                                                     0.9)  # (image, candidate_size/2, threshold)
         self.track_persons(detected_faces, face_scores)
 
         for person in self.tracked_person_list:
-            
+
             # Self-destruction of Person objects (if they're not being used)
             if not person.isAlive():
                 for index in range(len(self.tracked_person_list)):
@@ -76,36 +79,36 @@ class SurveillanceCamera(object):
 
             # Look for a badge if the person hasn't been found to have one yet
             if person.badge is None:
-                person_cutout = person.getImage(len(person.buffer)-1, as_tensor=True)
+                person_cutout = person.getImage(len(person.buffer) - 1, as_tensor=True)
                 badge_found, scan_data = self.detect_badge(person_cutout)
                 if badge_found:
                     person.addScanDataToBuffer(scan_data)
 
                 # If there's enough data in the buffer to proceed, make a conclusion about the badges
                 if person.getBufferOppacity('scanned') >= 3:
-                    
+
                     score_list = person.getBuffer('scanned scores')
                     detection_results = self.evaluate_detected_badges(score_list)
 
-
                     if detection_results is not None:
                         person.badge = True
-                        #person.badge_score = detection_results
+                        # person.badge_score = detection_results
 
-                    #person.badge_check_count+=1
+                    # person.badge_check_count+=1
 
             # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
             if person.badge and person.badge_number is None:
                 classified_badges = {'score': [], 'label': []}
-                for buffer in range(person.getBufferOppacity('scanned')-1):
+                for buffer in range(person.getBufferOppacity('scanned') - 1):
                     badge_cutout = person.getImage(buffer, as_tensor=True, value='scan')
                     badge_classified, scan_data = self.classify_badge(badge_cutout, threshold=0.7)
                     if badge_classified:
-                        #Add classified badge number and score to buffer
+                        # Add classified badge number and score to buffer
                         classified_badges['score'].append(scan_data['score'])
                         classified_badges['label'].append(scan_data['label'])
-                person.badge_number, person.badge_score = self.evaluate_classified_badges(classified_badges["label"], classified_badges["score"])
-                
+                person.badge_number, person.badge_score = self.evaluate_classified_badges(classified_badges["label"],
+                                                                                          classified_badges["score"])
+
                 if person.badge_score is None:
                     print('Failed to classify badge for person {}'.format(person.id))
                     print("Badge Check: {}/{}".format(person.badge_check_count, self.max_badge_check_count))
@@ -119,35 +122,35 @@ class SurveillanceCamera(object):
                     if person.badge_number in self.allowed_badges:
                         person.clearBuffer()
                     else:
-                        #person.badge = False
+                        # person.badge = False
                         print_alert(1, self.id, person.id)
                         # ALERT: this person is definitely not supposed to be here
                 else:
                     # Steps to take when the system is NOT confident in the result of the badge detection models
                     # For now - check for the badge again
                     pass
-                    
 
-            
             # if the badge has been checked enough times and not found, report that badge was not found.
             if person.badge is None and person.badge_check_count == self.max_badge_check_count:
-                #person.badge_check_count += 1
+                # person.badge_check_count += 1
                 person.badge = False
                 person.badge_number = 0
-                print_alert(0, self.id, person.id) # TODO: Detection confidence results
-            
+                print_alert(0, self.id, person.id)  # TODO: Detection confidence results
+
             person.badge_check_count += 1
-            #print("Badge checked for {} time".format(person.badge_check_count))
+            # print("Badge checked for {} time".format(person.badge_check_count))
         self.frame_id += 1
         self.fps.update()
         self.fps.stop()
-        cv2.putText(self.orig_image, ('fps: {}'.format(round(self.fps.fps(),2))), (100, self.orig_image.shape[0]-100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255,0,0), 3)
+        print("slow: %s" % self.fps.fps())
+        # cv2.putText(self.orig_image, ('fps: {}'.format(round(self.fps.fps(), 2))),
+        #             (100, self.orig_image.shape[0] - 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 0), 3)
         self.last_updated_frame = self.orig_image
         return True
 
     def track_persons(self, detected_faces, face_scores):
         # Basic image prep
-        #self.orig_image = cv2.flip(self.orig_image, 0)
+        # self.orig_image = cv2.flip(self.orig_image, 0)
         image_dimensions = self.orig_image.shape  # (h,w,c)
 
         # If any persons were detected, track them, and add cutout images to their BUFFER
@@ -187,7 +190,7 @@ class SurveillanceCamera(object):
                         person = matched_person[0]
 
                     bbox = normalise_bbox(track_bbs_ids[tracked_person][:4], image_dimensions)
-                    #person_score = np.round(face_scores[tracked_person], decimals=3)
+                    # person_score = np.round(face_scores[tracked_person], decimals=3)
                     xP = int(bbox[0])
                     yP = int(bbox[1])
                     x1P = int(bbox[2])
@@ -221,7 +224,8 @@ class SurveillanceCamera(object):
                         color = (255, 0, 0)
 
                     cv2.rectangle(self.orig_image, (xP, yP), (x1P, y1P), color, 2)
-                    cv2.putText(self.orig_image, ('person id: {}'.format(person_id)), (xP, yP), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                    cv2.putText(self.orig_image, ('person id: {}'.format(person_id)), (xP, yP),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
                     cv2.putText(self.orig_image, score_label, (xP, y1P), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
             else:
@@ -233,7 +237,7 @@ class SurveillanceCamera(object):
 
     def detect_badge(self, person_cutout, threshold=0.4, save_cutout=False):
 
-        #print("detecting badge")
+        # print("detecting badge")
         scan_data = {'score': [], 'badge_cutout': []}
         badge_found = False
 
@@ -257,48 +261,48 @@ class SurveillanceCamera(object):
         return badge_found, scan_data
 
     def evaluate_detected_badges(self, badge_score_list, threshold=None):
-        #print("evaluating detected badge")
+        # print("evaluating detected badge")
         if len(badge_score_list) > 0:
-            confidence = sum(badge_score_list)/len(badge_score_list)
+            confidence = sum(badge_score_list) / len(badge_score_list)
 
             if threshold is not None:
                 if confidence < threshold:
                     return None
 
             return confidence
-        
+
         return None
 
     def classify_badge(self, badge_cutout, threshold=0.8):
-        #print("classifying badge")
+        # print("classifying badge")
         scan_data = {'score': [], 'label': []}
         badge_classified = False
 
         with no_grad():
-                badge_class_prediction = self.badge_classifier([image_loader(badge_cutout, resize=False)])
+            badge_class_prediction = self.badge_classifier([image_loader(badge_cutout, resize=False)])
 
         for element in range(len(badge_class_prediction[0]["labels"])):
-                badge_score = np.round(badge_class_prediction[0]["scores"][element].item(), decimals=2)
-                if badge_score >= threshold:
-                    scan_data['score'].append(badge_score)
-                    scan_data['label'].append(badge_class_prediction[0]['labels'][element].item())
-                    badge_classified = True
+            badge_score = np.round(badge_class_prediction[0]["scores"][element].item(), decimals=2)
+            if badge_score >= threshold:
+                scan_data['score'].append(badge_score)
+                scan_data['label'].append(badge_class_prediction[0]['labels'][element].item())
+                badge_classified = True
 
         return badge_classified, scan_data
 
     def evaluate_classified_badges(self, badge_class_list, class_score_list, threshold=None):
-        #print("Evaluating classified badge")
+        # print("Evaluating classified badge")
         if len(class_score_list) > 0:
             badge_class_list = flatten_list(badge_class_list)
             class_score_list = flatten_list(class_score_list)
-            
+
             predicted_badge_number = mode(badge_class_list)
 
             score_list = []
             for idx in range(len(badge_class_list)):
                 if badge_class_list[idx] == predicted_badge_number:
                     score_list.append(class_score_list[idx])
-            confidence = sum(score_list)/len(score_list)
+            confidence = sum(score_list) / len(score_list)
 
             if threshold is not None:
                 if confidence < threshold:
@@ -309,6 +313,10 @@ class SurveillanceCamera(object):
         return None, None
 
     def read_frame(self, sink):
+        # Start FPS count engine
+        if self.frame_id == 0:
+            self.read_frames_fps.start()
+
         appsink_sample = GstApp.AppSink.pull_sample(sink)
         if appsink_sample is None:
             return False
@@ -317,7 +325,12 @@ class SurveillanceCamera(object):
         size, offset, _ = buff.get_sizes()
         frame_data = buff.extract_dup(offset, size)
         self.last_read_frame = bytes_to_image(frame_data)
-        return False    # Not necessary, but otherwise spams the terminal with an error message
+
+        self.read_frames_fps.update()
+        self.read_frames_fps.stop()
+        print("fast: %s" % self.read_frames_fps.fps())
+
+        return False  # Not necessary, but otherwise spams the terminal with an error message
 
     def start(self):
         pipe = pipeline.Pipe(self.id, self.cam_url)
@@ -327,7 +340,7 @@ class SurveillanceCamera(object):
         print("Camera {} started".format(self.id))
 
     def stop(self):
-        #pipeline.LOOP.quit()
+        # pipeline.LOOP.quit()
         # TODO: disconnect the appsink
         self.last_read_frame = None
 
@@ -338,9 +351,9 @@ class SurveillanceCamera(object):
                 frame = cv2.imencode('.jpg', cv2.cvtColor(image, cv2.COLOR_BGR2RGB))[1].tobytes()
             else:
                 frame = cv2.imencode('.jpg', cv2.cvtColor(self.last_updated_frame, cv2.COLOR_BGR2RGB))[1].tobytes()
-            
+
             yield (b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     def __del__(self):
         print("Camera {} turned off".format(self.id))
@@ -354,27 +367,32 @@ class SurveillanceCamera(object):
 
 
 class FPS:
-	def __init__(self):
-		# store the start time, end time, and total number of frames
-		# that were examined between the start and end intervals
-		self._start = None
-		self._end = None
-		self._numFrames = 0
-	def start(self):
-		# start the timer
-		self._start = datetime.now()
-		return self
-	def stop(self):
-		# stop the timer
-		self._end = datetime.now()
-	def update(self):
-		# increment the total number of frames examined during the
-		# start and end intervals
-		self._numFrames += 1
-	def elapsed(self):
-		# return the total number of seconds between the start and
-		# end interval
-		return (self._end - self._start).total_seconds()
-	def fps(self):
-		# compute the (approximate) frames per second
-		return self._numFrames / self.elapsed()
+    def __init__(self):
+        # store the start time, end time, and total number of frames
+        # that were examined between the start and end intervals
+        self._start = None
+        self._end = None
+        self._numFrames = 0
+
+    def start(self):
+        # start the timer
+        self._start = datetime.now()
+        return self
+
+    def stop(self):
+        # stop the timer
+        self._end = datetime.now()
+
+    def update(self):
+        # increment the total number of frames examined during the
+        # start and end intervals
+        self._numFrames += 1
+
+    def elapsed(self):
+        # return the total number of seconds between the start and
+        # end interval
+        return (self._end - self._start).total_seconds()
+
+    def fps(self):
+        # compute the (approximate) frames per second
+        return self._numFrames / self.elapsed()
