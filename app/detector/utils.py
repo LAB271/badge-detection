@@ -78,7 +78,7 @@ def print_alert(code, camera_id, person_id, det_conf = None, clas_conf = None):
     
     det_conf = "-" if det_conf is None else "{}%".format(round(100 - det_conf*100), 2)
     clas_conf = "-" if clas_conf is None else "{}%".format(round(clas_conf), 2)
-    print("DETECTOR confidence: {}  CLASSIFIER confidence: {}".format(det_conf, clas_conf))
+    #print("DETECTOR confidence: {}  CLASSIFIER confidence: {}".format(det_conf, clas_conf))
     print("")
     print("")
     print("")

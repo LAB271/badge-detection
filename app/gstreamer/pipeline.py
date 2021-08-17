@@ -24,9 +24,11 @@ class Pipe(object):
 
     def __init__(self, name, rtsp_url):
         self.name = name
+        
         # This one is faster, but the size of the image is always 1.5 times the size of the buffer, and therefore it cannot be read.
         #self.pipeline_command = ("rtspsrc location={} latency=0 ! queue ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! videoscale ! video/x-raw ! appsink name=app_sink drop=false max-buffers=2").format(rtsp_url) 
-        self.pipeline_command = ("rtspsrc location={} latency=0 protocols=tcp name=rtsp_src tcp-timeout=10000000 ! decodebin ! videoconvert ! videorate ! video/x-raw,framerate=1/1 ! jpegenc quality=100 ! appsink name=app_sink drop=false max-buffers=2").format(rtsp_url)        
+        self.pipeline_command = ("rtspsrc location={} latency=0 ! queue ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! videorate ! video/x-raw,framerate=5/1 ! jpegenc quality=50 ! appsink name=app_sink drop=false max-buffers=2").format(rtsp_url)
+        # self.pipeline_command = ("rtspsrc location={} latency=0 protocols=tcp name=rtsp_src tcp-timeout=10000000 ! decodebin ! videoconvert ! videorate ! video/x-raw,framerate=1/1 ! jpegenc quality=100 ! appsink name=app_sink drop=false max-buffers=2").format(rtsp_url)
         self.pipeline = None
         self.state = Gst.State.NULL
         self.appsink = None

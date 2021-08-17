@@ -3,7 +3,6 @@ from datetime import datetime
 from time import sleep
 import cv2
 import numpy as np
-from numpy.core.fromnumeric import nonzero
 from torch import no_grad
 from random import randint
 from app.detector.person import Person
@@ -23,7 +22,7 @@ class SurveillanceCamera(object):
         self.id = id
         self.buffer_size = buffer_size
         self.object_lifetime = object_lifetime
-        self.max_badge_check_count = max_badge_check_count
+        self.max_badge_check_count = max_badge_check_count + buffer_size
         self.cam_url = path_to_stream
 
         '''if self.record is not None:
@@ -49,31 +48,21 @@ class SurveillanceCamera(object):
         self.frame_id = 0
 
     def update(self):  
+        # Start FPS count engine
         if self.frame_id == 0:
             self.fps.start()
 
+        # Stop service if stream ended
         if self.last_read_frame is None:
             # Implement some sort of restart system here. Security cameras should not ever be turned off
             return None
-        #self.orig_image = cv2.cvtColor(np.array(self.last_read_frame), cv2.COLOR_RGB2BGR)
-        #image = cv2.cvtColor(self.orig_image, cv2.COLOR_BGR2RGB)
+
+        # Convert PIL image to a np array
         self.orig_image = np.array(self.last_read_frame)
 
-        # Person Detection
+        # Person detection and tracking
         detected_faces, _, face_scores = self.face_predictor.predict(self.orig_image, 500, 0.9) #(image, candidate_size/2, threshold)
         self.track_persons(detected_faces, face_scores)
-
-        '''if self.interface:
-            x = int(self.orig_image.shape[1] / 12)
-            y = int(self.orig_image.shape[0] / 11)
-            size = int(x / 40)
-            cv2.putText(self.orig_image, "Tracking: {}".format(len(self.tracked_person_list)), (x, y), cv2.FONT_HERSHEY_SIMPLEX, size, (100, 0, 255), int(size))
-            cv2.imshow('Camera {}'.format(self.id), self.orig_image)
-            cv2.waitKey(1)'''
-
-        '''if self.record is not None:
-            self.out.write(self.orig_image)'''
-
 
         for person in self.tracked_person_list:
             
@@ -86,62 +75,69 @@ class SurveillanceCamera(object):
                 continue
 
             # Look for a badge if the person hasn't been found to have one yet
-            if person.hasBadge() is None:
-                person_cutout = person.getImage(len(person.buffer)-1, formated=False)
-                scan_data = self.detect_badge(person_cutout)
-                person.addScanDataToBuffer(scan_data) 
+            if person.badge is None:
+                person_cutout = person.getImage(len(person.buffer)-1, as_tensor=True)
+                badge_found, scan_data = self.detect_badge(person_cutout)
+                if badge_found:
+                    person.addScanDataToBuffer(scan_data)
 
                 # If there's enough data in the buffer to proceed, make a conclusion about the badges
-                if person.getBufferOppacity('scan') == person.max_buffer_size:
+                if person.getBufferOppacity('scanned') >= 3:
                     
                     score_list = person.getBuffer('scanned scores')
                     detection_results = self.evaluate_detected_badges(score_list)
 
+
                     if detection_results is not None:
                         person.badge = True
-                    else:
-                        pass
-                    person.badge_check_count+=1
+                        #person.badge_score = detection_results
+
+                    #person.badge_check_count+=1
 
             # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
-            if person.hasBadge() and person.badge_number is None or 0:
-            
-                badge_cutout = person.getImage(person.getBufferOppacity('scan')-1, formated=False, value='scan')
-                label_list, score_list = self.classify_badge(badge_cutout, threshold=0.9)
-                badge_number, confidence = self.evaluate_classified_badges(label_list, score_list)
-                person.badge_number = badge_number
-                person.badge_score = confidence
+            if person.badge and person.badge_number is None:
+                classified_badges = {'score': [], 'label': []}
+                for buffer in range(person.getBufferOppacity('scanned')-1):
+                    badge_cutout = person.getImage(buffer, as_tensor=True, value='scan')
+                    badge_classified, scan_data = self.classify_badge(badge_cutout, threshold=0.7)
+                    if badge_classified:
+                        #Add classified badge number and score to buffer
+                        classified_badges['score'].append(scan_data['score'])
+                        classified_badges['label'].append(scan_data['label'])
+                person.badge_number, person.badge_score = self.evaluate_classified_badges(classified_badges["label"], classified_badges["score"])
                 
                 if person.badge_score is None:
-                    print('Failed to classify badge')
+                    print('Failed to classify badge for person {}'.format(person.id))
                     print("Badge Check: {}/{}".format(person.badge_check_count, self.max_badge_check_count))
-                    print(label_list, score_list)
                     if person.badge_check_count == self.max_badge_check_count:
-                        person.setBadge(False)
-                        person.badge_check_count += 1
-                        print_alert(2, self.id, person.get_id(), detection_results, person.badge_score)
+                        person.badge = False
+                        person.badge_number = 0
+                        print_alert(2, self.id, person.id)
 
                 elif person.badge_score > 0.8:
                     # Steps to take when the system is confident in the result of the badge detection models
                     if person.badge_number in self.allowed_badges:
                         person.clearBuffer()
                     else:
-                        person.setBadge(False)
-                        print_alert(1, self.id, person.get_id(), detection_results, person.badge_score)
+                        #person.badge = False
+                        print_alert(1, self.id, person.id)
                         # ALERT: this person is definitely not supposed to be here
                 else:
                     # Steps to take when the system is NOT confident in the result of the badge detection models
                     # For now - check for the badge again
-                    person.badge_check_count -= 1
-                    #person.setBadge(None)
+                    pass
+                    
 
             
             # if the badge has been checked enough times and not found, report that badge was not found.
-            if person.hasBadge() is None and person.badge_check_count == self.max_badge_check_count:
-                person.badge_check_count += 1
-                person.setBadge(False)
-                print_alert(0, self.id, person.get_id(), detection_results, person.badge_score) # TODO: Detection results
-
+            if person.badge is None and person.badge_check_count == self.max_badge_check_count:
+                #person.badge_check_count += 1
+                person.badge = False
+                person.badge_number = 0
+                print_alert(0, self.id, person.id) # TODO: Detection confidence results
+            
+            person.badge_check_count += 1
+            #print("Badge checked for {} time".format(person.badge_check_count))
         self.frame_id += 1
         self.fps.update()
         self.fps.stop()
@@ -182,7 +178,7 @@ class SurveillanceCamera(object):
 
                     # Check whether the person already exists (i.e. has been detected before), and either return the old one, or create a new instance of Person
                     person_id = int(track_bbs_ids[tracked_person][4])
-                    matched_person = [x for x in self.tracked_person_list if x.get_id() == person_id]
+                    matched_person = [x for x in self.tracked_person_list if x.id == person_id]
 
                     if len(matched_person) == 0:
                         person = Person(person_id, self.buffer_size, self.object_lifetime)
@@ -204,7 +200,7 @@ class SurveillanceCamera(object):
                     person.age = 0
 
                     # If a person was detected with a badge, draw a green box, if was detected to not have a badge - red, if it's still unknown - yellow and save image to BUFFER for further checks
-                    if person.hasBadge() is None or person.badge_number == 0:
+                    if person.badge is None or person.badge_number == 0:
                         person.addImageToBuffer([frame])
                         color = (25, 25, 25)
                         score_label = "Evaluating..."
@@ -239,6 +235,7 @@ class SurveillanceCamera(object):
 
         #print("detecting badge")
         scan_data = {'score': [], 'badge_cutout': []}
+        badge_found = False
 
         with no_grad():
             badge_bbox_prediction = self.badge_predictor([image_loader(person_cutout)])
@@ -255,16 +252,9 @@ class SurveillanceCamera(object):
                 badge_cutout = person_cutout[yB:y1B, xB:x1B]
                 scan_data['score'].append(score)
                 scan_data['badge_cutout'].append(badge_cutout)
-                
-                # Saving image cutouts of badge and person with a badge for future retraining of detection model
-                '''if save_cutout:
-                    label = str(datetime.now().strftime(r'%d-%m-%Y_%H-%M-%S')) + str(randint(1, 1000))
-                    path = os.path.join('output', 'badges', '{}.jpg'.format(label))
-                    cv2.imwrite(path, badge_cutout)
-                    path = os.path.join('output', 'person_cutouts', '{}.jpg'.format(label))
-                    cv2.imwrite(path, person_cutout)'''
+                badge_found = True
 
-        return scan_data
+        return badge_found, scan_data
 
     def evaluate_detected_badges(self, badge_score_list, threshold=None):
         #print("evaluating detected badge")
@@ -281,7 +271,8 @@ class SurveillanceCamera(object):
 
     def classify_badge(self, badge_cutout, threshold=0.8):
         #print("classifying badge")
-        scan_data = {'label': [], 'score': []}
+        scan_data = {'score': [], 'label': []}
+        badge_classified = False
 
         with no_grad():
                 badge_class_prediction = self.badge_classifier([image_loader(badge_cutout, resize=False)])
@@ -289,14 +280,17 @@ class SurveillanceCamera(object):
         for element in range(len(badge_class_prediction[0]["labels"])):
                 badge_score = np.round(badge_class_prediction[0]["scores"][element].item(), decimals=2)
                 if badge_score >= threshold:
-                    scan_data['label'].append(badge_class_prediction[0]['labels'][element].item())
                     scan_data['score'].append(badge_score)
+                    scan_data['label'].append(badge_class_prediction[0]['labels'][element].item())
+                    badge_classified = True
 
-        return scan_data['label'], scan_data['score']
+        return badge_classified, scan_data
 
     def evaluate_classified_badges(self, badge_class_list, class_score_list, threshold=None):
         #print("Evaluating classified badge")
         if len(class_score_list) > 0:
+            badge_class_list = flatten_list(badge_class_list)
+            class_score_list = flatten_list(class_score_list)
             
             predicted_badge_number = mode(badge_class_list)
 
@@ -308,11 +302,11 @@ class SurveillanceCamera(object):
 
             if threshold is not None:
                 if confidence < threshold:
-                    return 0, confidence
+                    return None, confidence
 
             return predicted_badge_number, confidence
 
-        return 0, None
+        return None, None
 
     def read_frame(self, sink):
         appsink_sample = GstApp.AppSink.pull_sample(sink)
@@ -330,6 +324,7 @@ class SurveillanceCamera(object):
         pipe.run()
         appsink = pipe.get_appsink()
         appsink.connect("new-sample", self.read_frame)
+        print("Camera {} started".format(self.id))
 
     def stop(self):
         #pipeline.LOOP.quit()
@@ -338,9 +333,14 @@ class SurveillanceCamera(object):
 
     def get_frame_bytes(self, read=True):
         while read:
-            frame = cv2.imencode('.jpg', cv2.cvtColor(self.last_updated_frame, cv2.COLOR_BGR2RGB))[1].tobytes()
+            if self.last_read_frame is None:
+                image = cv2.imread('app/interface/static/assets/img/offline.jpg')
+                frame = cv2.imencode('.jpg', cv2.cvtColor(image, cv2.COLOR_BGR2RGB))[1].tobytes()
+            else:
+                frame = cv2.imencode('.jpg', cv2.cvtColor(self.last_updated_frame, cv2.COLOR_BGR2RGB))[1].tobytes()
+            
             yield (b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     def __del__(self):
         print("Camera {} turned off".format(self.id))
