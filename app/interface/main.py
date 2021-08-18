@@ -42,7 +42,6 @@ def monitor_device_info():
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
         yield "data: " + str(cpu) + str(ram) + "\n\n"
-        print(cpu, ram)
         sleep(10)
 
 @app.route('/system_info')
@@ -92,9 +91,7 @@ def video_feed(cam_id=None):
 if __name__ == "__main__":
     initializer = Thread(target=start_cameras)
     updater = Thread(target=update_cameras)
-    #device_info = Thread(target=monitor_device_info)
 
-    #device_info.start()
     initializer.start()
     sleep(2)
     updater.start()
