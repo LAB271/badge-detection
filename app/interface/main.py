@@ -1,5 +1,6 @@
 from threading import Thread
 from time import sleep
+import psutil
 
 from flask import Flask, render_template, Response
 
@@ -32,10 +33,22 @@ hikvision_360 = SurveillanceCamera('labs-hikvision-360', person_detection_model,
                                OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
 
 
-camera_list = [hikvision, hikvision_360]
+camera_list = [hikvision]
 
 
-# scheduler_isRunning = False
+# Device monitoring tools:
+def monitor_device_info():
+    while True:
+        cpu = psutil.cpu_percent()
+        ram = psutil.virtual_memory()[2]
+        yield "data: " + str(cpu) + str(ram) + "\n\n"
+        print(cpu, ram)
+        sleep(10)
+
+@app.route('/system_info')
+def system_info():
+    return Response(monitor_device_info(), mimetype='text/event-stream')
+
 
 def start_cameras():
     global camera_list
@@ -79,9 +92,11 @@ def video_feed(cam_id=None):
 if __name__ == "__main__":
     initializer = Thread(target=start_cameras)
     updater = Thread(target=update_cameras)
+    #device_info = Thread(target=monitor_device_info)
 
+    #device_info.start()
     initializer.start()
     sleep(2)
     updater.start()
 
-    app.run(debug=False, use_reloader=False)
+    app.run(debug=True, use_reloader=True)

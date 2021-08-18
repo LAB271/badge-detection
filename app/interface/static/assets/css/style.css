@@ -147,3 +147,10 @@ ul ul a {
     justify-content: center;
     align-items: center;
 }
+
+.device_info{
+    position: absolute;
+    margin-bottom: 20px;
+    margin-left: 10px;
+    bottom: 0;
+}

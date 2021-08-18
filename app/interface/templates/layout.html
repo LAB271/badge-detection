@@ -23,12 +23,26 @@
             <!-- Bootstrap JS -->
             <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>  
 
+            <!-- Device Info Monitoring -->
+            <script>
+                var source = new EventSource("/system_info");
+                source.onmessage = function(event) {
+                    cpu = "#cpu_usage"
+                    ram = "#ram_usage"
+                    cpu_usage = event.data[0]+event.data[1]
+                    ram_usage = event.data[4]+event.data[5]
+                    $(cpu).css('width', cpu_usage+'%').attr('aria-valuenow', cpu_usage);
+                    $(cpu).text(cpu_usage+'%');
+                    $(ram).css('width', ram_usage+'%').attr('aria-valuenow', ram_usage);
+                    $(ram).text(ram_usage+'%');
+                }
+            </script>
+
         <div class="wrapper">
             <div class="background">
                 <img src="static/assets/img/background.jpeg"/>
                 {% block body %}{% endblock %}
             </div>
-
           <!-- Sidebar -->
         <div class="sidebar-container">
             <nav id="sidebar">
@@ -59,19 +73,38 @@
                             <i class="fas fa-cogs"></i>
                             Settings</a>
                     </li>
-                    <li>
-                        <a href="About">
-                            <i class="fas fa-users"></i>
-                            About us
-                        </a>
+                    <li class="active">
+                        <a href="#systemInfo" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                            <i class="fas fa-video"></i>
+                            System Info</a>
+                        <ul class="collapse list-unstyled" id="systemInfo">
+                            <li>
+                                <p>cpu usage</p>
+                                <div class="progress" style="width: 95%; margin: 5px;" >
+                                    <div class="progress-bar progress-bar-striped " role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%" id="cpu_usage">
+                                        <span class="progress-bar-label" id="cpu_usage_label">0%</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <p>ram usage</p>
+                                <div class="progress" style="width: 95%; margin: 5px;" >
+                                    <div class="progress-bar progress-bar-striped " role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%" id="ram_usage">
+                                        <span class="progress-bar-label" id="ram_usage_label">0%</span>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
                     </li>
+                    
                 </ul>
             </nav>
         </div>
           
 
           <!--Content-->
-            
+        
+                
         <nav class="navbar navbar-expand-lg ">
             <script>$(document).ready(function () {
     

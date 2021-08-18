@@ -101,7 +101,7 @@ class SurveillanceCamera(object):
                 person_cutout = person.getImage(person.getBufferOppacity('person cutouts')-1, as_tensor=True)
                 #print(person.getBufferOppacity('person cutouts'))
                 badge_found, scan_data = self.detect_badge(person_cutout, threshold=0.5)
-                print("Score: {}".format(scan_data['score']))
+                print("Detection score: {}".format(person.getBuffer('scanned scores')))
                 if badge_found:
                     person.addScanDataToBuffer(scan_data)
                     person.badge = True
