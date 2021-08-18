@@ -1,6 +1,3 @@
-from cv2 import cvtColor, COLOR_RGB2BGR
-from numpy import array
-from torchvision import transforms
 from app.detector.utils import flatten_list, tensor_to_image
 
 
@@ -15,6 +12,7 @@ class Person(object):
         Maybe introduce a buffer for badge_cutouts and then have the dictionary scan_data with score_det, score_clas, and label
         '''
         self.buffer_scanned = {'score_detection': [], 'badge_cutout': []} #, 'score_classification': [], 'label': []} # Stores detection scan data
+        self.buffer_classified_badges = {'score_classification': [], 'label': []}
         self.badge = None
         self.badge_number = None
         self.badge_score = None     # Stores the detection, and later - classification model scores

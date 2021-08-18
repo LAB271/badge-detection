@@ -10,10 +10,10 @@ from app.gstreamer import pipeline
 app = Flask(__name__)
 
 PATH_TO_RTSP_HIKVSION_DOME_CAMERA = 'rtsp://readonly:5hVUlm3S7o92@10.32.8.50/Streaming/channels/101'
-
+PATH_TO_RTSP_HIKVSION_360_CAMERA = 'rtsp://readonly:5hVUlm3S7o92@10.32.8.51/Streaming/channels/101'
 # Increasing any of these values results in a better accuracy, however slower speeds
-BUFFER = 7  # max image buffer capacity
-OBJECT_LIFETIME = 10  # How long should the tracker still try to find a lost tracked person (measured in frames)
+BUFFER = 5  # max image buffer capacity
+OBJECT_LIFETIME = 5  # How long should the tracker still try to find a lost tracked person (measured in frames)
 MAX_BADGE_CHECK_COUNT = 3  # How many times a full BUFFER should be checked before a person is declared to be an imposter
 
 for _ in range(10):
@@ -22,16 +22,17 @@ for _ in range(10):
 person_detection_model = PersonDetector().model
 badge_detection_model = BadgeDetector().model
 badge_classification_model = BadgeClassifier().model
+print("-------------------------")
 
 hikvision = SurveillanceCamera('labs-hikvision', person_detection_model, badge_detection_model,
                                badge_classification_model, [1, 2, 3, 4, 5], PATH_TO_RTSP_HIKVSION_DOME_CAMERA, BUFFER,
                                OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
-# hikvision_prerec = SurveillanceCamera('labs-preREC', person_detection_model, badge_detection_model, badge_classification_model, [1, 2, 3, 4, 5], os.path.join('output', 'Camera hikvision - 29-07-2021_20-13-07.mp4'), 10, 10, 4, 10, 3, interface=False)
-# hikvision_prerec_copy = SurveillanceCamera('labs-preREC-----2', person_detection_model, badge_detection_model, badge_classification_model, [1, 2, 3, 4, 5], os.path.join('output', 'recordings', 'Camera labs-hikvision - 27-07-2021_19-14-41.mp4'), 10, 10, 4, 10, 3, interface=False)
+hikvision_360 = SurveillanceCamera('labs-hikvision-360', person_detection_model, badge_detection_model,
+                               badge_classification_model, [1, 2, 3, 4, 5], PATH_TO_RTSP_HIKVSION_360_CAMERA, BUFFER,
+                               OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
 
-print("-------------------------")
 
-camera_list = [hikvision]
+camera_list = [hikvision, hikvision_360]
 
 
 # scheduler_isRunning = False
