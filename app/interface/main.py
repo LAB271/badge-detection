@@ -28,10 +28,6 @@ print("-------------------------")
 hikvision = SurveillanceCamera('labs-hikvision', person_detection_model, badge_detection_model,
                                badge_classification_model, [1, 2, 3, 4, 5], PATH_TO_RTSP_HIKVSION_DOME_CAMERA, BUFFER,
                                OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
-hikvision_360 = SurveillanceCamera('labs-hikvision-360', person_detection_model, badge_detection_model,
-                               badge_classification_model, [1, 2, 3, 4, 5], PATH_TO_RTSP_HIKVSION_360_CAMERA, BUFFER,
-                               OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
-
 
 camera_list = [hikvision]
 
@@ -96,4 +92,4 @@ if __name__ == "__main__":
     sleep(2)
     updater.start()
 
-    app.run(debug=True, use_reloader=True)
+    app.run(debug=True, use_reloader=True, host="127.0.0.1", port="5000")
