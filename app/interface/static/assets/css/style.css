@@ -106,20 +106,18 @@ ul ul a {
 
 .container{
     width: 100%;
-    height: 100vh;
-    display: flex;
-    margin-top: 5%;
+    top: 0;
 }
 
 .container-holder{
-    width: 100%;
+
     position: relative;
     top: 0;
 }
 
 .carousel-inner{
     position: relative;
-    box-shadow: 0px 0px 8px 1px rgb(0, 0, 0);
+    box-shadow: 0px 0px 8px 5px rgb(0, 0, 0);
     margin-top: 2%;
 }
 
@@ -128,8 +126,42 @@ ul ul a {
     bottom: 0;
     left: 0;
     position: absolute;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
+
+.slidecontainer {
+    width: 100%;
+}
+.slider {
+    -webkit-appearance: none;  /* Override default CSS styles */
+    appearance: none;
+    width: 100%; /* Full-width */
+    height: 25px; /* Specified height */
+    background: #d3d3d3; /* Grey background */
+    outline: none; /* Remove outline */
+    opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+    -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+    transition: opacity .2s;
+  }
+  
+  /* Mouse-over effects */
+  .slider:hover {
+    opacity: 1; /* Fully shown on mouse-over */
+  }
+  
+  /* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Override default look */
+    appearance: none;
+    width: 25px; /* Set a specific slider handle width */
+    height: 25px; /* Slider handle height */
+    background: #04AA6D; /* Green background */
+    cursor: pointer; /* Cursor on hover */
+  }
+  
+  .slider::-moz-range-thumb {
+    width: 25px; /* Set a specific slider handle width */
+    height: 25px; /* Slider handle height */
+    background: #04AA6D; /* Green background */
+    cursor: pointer; /* Cursor on hover */
+  }

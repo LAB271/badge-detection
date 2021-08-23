@@ -27,8 +27,8 @@
 
             <!-- Device Info Monitoring -->
             <script>
-                var source = new EventSource("/system_info");
-                source.onmessage = function(event) {
+                var device_info = new EventSource("/system_info");
+                device_info.onmessage = function(event) {
                     cpu = "#cpu_usage"
                     ram = "#ram_usage"
                     cpu_usage = event.data[0]+event.data[1]
@@ -40,7 +40,11 @@
                 }
             </script>
 
+
 <div class=wrapper>
+
+
+
 
           <!-- Sidebar -->
             <nav id="sidebar">
@@ -67,10 +71,20 @@
                         </ul>
                     </li>
                     <li>
-                        <a href="settings">
+                        <a href="#settingsSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-cogs"></i>
-                            Settings
-                        </a>
+                            settings</a>
+                        <ul class="collapse list-unstyled" id="camerasSubmenu">
+                            <li>
+                                <a href="templates/carousel.html">Buffer 1</a>
+                            </li>
+                            <li>
+                                <a href="#2">setting 2</a>
+                            </li>
+                            <li>
+                                <a href="#3">setting 3</a>
+                            </li>
+                        </ul>
                     </li>
                     <li>
                         <a href="Locations">
@@ -104,31 +118,30 @@
                     
                 </ul>
             </nav>
+
+                          <!--Content-->
+
+
+<div id="content">    
+    <nav class="navbar navbar-expand-lg ">
+          <div class="container-fluid">
+        <button type="button" id="sidebarCollapse" class="btn btn-info" >
+            <i class="fas fa-align-left"></i>
+            <span>Menu</span>
+        </button>
+        </div>
+
+        <div class="alert alert-danger" role="alert">
+            <strong>Holy Guacamole: </strong> Person without badge detected at this <a href="location" class="alert-link">location</a>
+        </div>
+
+    </nav>
+
+    {% block body %}{% endblock %}
+</div> 
           
 
-          <!--Content-->
 
-
-          <div id="content">    
-        
-         
-        <nav class="navbar navbar-expand-lg ">
-             
-
-              <div class="container-fluid">
-            <button type="button" id="sidebarCollapse" class="btn btn-info" >
-                <i class="fas fa-align-left"></i>
-                <span>Menu</span>
-            </button>
-            </div>
-            <div class="alert-container"></div>
-            <div class="alert alert-danger" role="alert">
-                ALERT: Person without badge detected at this <a href="location" class="alert-link">location</a>
-              </div>
-        </nav>
-
-        {% block body %}{% endblock %}
-    </div> 
 </div>
 
 
