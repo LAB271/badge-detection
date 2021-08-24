@@ -1,8 +1,7 @@
 from threading import Thread
 from time import sleep
-import psutil
-
-from flask import Flask, render_template, Response
+import psutil 
+from flask import Flask, render_template, Response, request, jsonify
 
 from app.detector.camera import SurveillanceCamera
 from app.detector.models import PersonDetector, BadgeDetector, BadgeClassifier
@@ -69,7 +68,7 @@ def update_cameras():
                             print("Camera {} - Restarted".format(camera.id))
                         return
                 camera_list.pop(idx)
-            # print("Currently have {} cameras online".format(len(camera_list)))
+# print("Currently have {} cameras online".format(len(camera_list)))
 
 
 @app.route('/')
@@ -82,6 +81,11 @@ def video_feed(cam_id=None):
     if cam_id is not None:
         return Response(camera_list[int(cam_id)].get_frame_bytes(),
                         mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+
+
+
 
 
 if __name__ == "__main__":

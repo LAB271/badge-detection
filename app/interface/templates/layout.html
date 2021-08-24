@@ -21,7 +21,10 @@
             <!-- Popper.JS -->
             <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
             <!-- Bootstrap JS -->
-            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>  
+            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script> 
+            
+            <!-- jquery -->
+            <script src="jquery-3.5.1.min.js"></script>
 
                
 
@@ -39,6 +42,10 @@
                     $(ram).text(ram_usage+'%');
                 }
             </script>
+
+
+
+
 
 
 <div class=wrapper>
@@ -74,15 +81,23 @@
                         <a href="#settingsSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-cogs"></i>
                             settings</a>
-                        <ul class="collapse list-unstyled" id="camerasSubmenu">
+                        <ul class="collapse list-unstyled" id="settingsSubmenu">
                             <li>
-                                <a href="templates/carousel.html">Buffer 1</a>
+                                <p>Buffer</p>
+                                <div class="slidecontainer"> 
+                                    <input type="range" min="1" max="10" value="1" class="slider" id="buffer_range">
+                                    <p id="buffervalue"></p>
+                                </div>
                             </li>
                             <li>
-                                <a href="#2">setting 2</a>
+                               <p>Object life time</p>
+                               <input type="range" min="1" max="10" value="1" class="slider" id="lifetime_range">
+                               <p id="lifetimevalue"></p>
                             </li>
                             <li>
-                                <a href="#3">setting 3</a>
+                                <p>Max badge check count</p>
+                                <input type="range" min="1" max="10" value="1" class="slider" id="mbcc_range">
+                                <p id="mbccvalue"></p>
                             </li>
                         </ul>
                     </li>
@@ -92,7 +107,7 @@
                             Camera Locations
                         </a>
                     </li>
-                    <li class="active">
+                    <li>
                         <a href="#systemInfo" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-video"></i>
                             System Info</a>
@@ -145,13 +160,68 @@
 </div>
 
 
-
+<!-- Sidebar interactive -->
     <script>$(document).ready(function () {
     
         $('#sidebarCollapse').on('click', function () {
             $('#sidebar').toggleClass('active');
           });
       });</script>
+
+<!-- Sliders -->
+
+
+        <script>
+        var slider = document.getElementById("buffer_range");
+        
+        slider.onchange = function() {
+        newvalue_buffer=this.value;
+} 
+        </script>
+
+        <script>
+        var slider = document.getElementById("lifetime_range");
+            
+        slider.onchange = function() {
+        newvalue_lifetime = this.value;
+        }
+        </script>
+
+        <script>
+        var slider = document.getElementById("mbcc_range");
+
+            
+        slider.onchange = function() {
+        newvalue_mbcc =this.value;
+        }
+        </script>
+
+<!-- slider event listener -->
+
+<script>
+    document.getElementById("buffer_range").addEventListener("change", function(){
+        document.getElementById("buffervalue").innerHTML = newvalue_buffer;
+    });
+</script>
+
+<script>
+    document.getElementById("lifetime_range").addEventListener("change", function(){
+        document.getElementById("lifetimevalue").innerHTML = newvalue_lifetime;
+    });
+</script>
+<script>
+    document.getElementById("mbcc_range").addEventListener("change", function(){
+    document.getElementById("mbccvalue").innerHTML = newvalue_mbcc;
+});
+</script>
+
+
+
+
+
+
+
+
     
 
 </body>
