@@ -50,6 +50,7 @@ class SurveillanceCamera(object):
         self.fps = FPS()
         self.read_frames_fps = FPS()
         self.frame_id = 0
+        self.state = {'alert': None}
 
     def update(self):
 
@@ -141,6 +142,9 @@ class SurveillanceCamera(object):
                         person.badge_number = 0
                         print_alert(2, self.id, person.id)
 
+                        self.updateState(code=2)
+                        
+
                 elif person.badge_score > 0.8:
                     # Steps to take when the system is confident in the result of the badge detection models
                     if person.badge_number in self.allowed_badges:
@@ -148,6 +152,7 @@ class SurveillanceCamera(object):
                     else:
                         # person.badge = False
                         print_alert(1, self.id, person.id)
+                        self.updateState(code=1)
                         # ALERT: this person is definitely not supposed to be here
                 else:
                     # TODO: Steps to take when the system is NOT confident in the result of the badge detection models
@@ -162,6 +167,7 @@ class SurveillanceCamera(object):
                 person.badge = False
                 person.badge_number = 0
                 print_alert(0, self.id, person.id)  # TODO: Detection confidence results
+                self.updateState(code=0)
             
             # print("Badge checked for {} time".format(person.badge_check_count))
         #print("Time taken to check {} persons: {}".format(len(self.tracked_person_list), datetime.now()-start_time))
@@ -340,6 +346,9 @@ class SurveillanceCamera(object):
 
             return predicted_badge_number, confidence
         return None, None
+    
+    def updateState(self, code=None):
+        self.state['alert'] = code
 
     def read_frame(self, sink):
         # Start FPS count engine
@@ -361,13 +370,12 @@ class SurveillanceCamera(object):
         #print("frame_reader fps: %s" % self.read_frames_fps.fps())
 
         return False  # Not necessary, but otherwise spams the terminal with an error message
-
+    
     def start(self):
         pipe = pipeline.Pipe(self.id, self.cam_url)
         pipe.run()
         appsink = pipe.get_appsink()
         appsink.connect("new-sample", self.read_frame)
-        print("Camera {} started".format(self.id))
 
     def stop(self):
         # pipeline.LOOP.quit()

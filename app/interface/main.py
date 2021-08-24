@@ -2,7 +2,7 @@ from threading import Thread
 from time import sleep
 import psutil
 
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, json
 
 from app.detector.camera import SurveillanceCamera
 from app.detector.models import PersonDetector, BadgeDetector, BadgeClassifier
@@ -38,11 +38,46 @@ def monitor_device_info():
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
         yield "data: " + str(cpu) + str(ram) + "\n\n"
-        sleep(10)
+        sleep(0.5)
 
 @app.route('/system_info')
 def system_info():
     return Response(monitor_device_info(), mimetype='text/event-stream')
+
+def monitor_camera_state():
+    while True:
+        global camera_list
+        for camera in camera_list:
+            alert_code = camera.state['alert']
+            #print(alert_code)
+            if alert_code is not None:
+                print("Should see an alert: code {}".format(alert_code))
+                camera.updateState()
+            yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
+        sleep(15)
+            
+
+@app.route('/state_info')
+def state_info():
+    return Response(monitor_camera_state(), mimetype='text/event-stream')
+
+
+'''def monitor_camera_state():
+    while True:
+        global camera_list
+        for camera in camera_list:
+            alert_code = camera.state['alert']
+            if alert_code is not None:
+                message_template = "Holy Guacamole! Camera {} found a person that".format(camera.id)
+                if alert_code == 0:
+                    message = message_template + "does not have a badge"
+                elif alert_code == 1:
+                    message = message_template + "is in a restricted area"
+                elif alert_code == 2:
+                    message = message_template + "might have a badge but not a valid SBP badge"
+                flash(message, 'alert')
+                camera.updateState()
+        sleep(10)'''
 
 
 def start_cameras():
@@ -68,11 +103,11 @@ def update_cameras():
                         if attempt > 2:
                             print("Camera {} - Restarted".format(camera.id))
                         return
-                camera_list.pop(idx)
+                #camera_list.pop(idx)
             # print("Currently have {} cameras online".format(len(camera_list)))
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     return render_template('carousel.html', list_len=len(camera_list), camera_list=camera_list)
 
@@ -87,9 +122,11 @@ def video_feed(cam_id=None):
 if __name__ == "__main__":
     initializer = Thread(target=start_cameras)
     updater = Thread(target=update_cameras)
+    #state_monitor = Thread(target=monitor_camera_state)
 
     initializer.start()
     sleep(2)
     updater.start()
+    #state_monitor.start()
 
-    app.run(debug=True, use_reloader=False, host="127.0.0.1", port="5000")
+    app.run(debug=True, use_reloader=True, host="127.0.0.1", port="5000")
