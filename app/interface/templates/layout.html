@@ -23,7 +23,20 @@
             <!-- Bootstrap JS -->
             <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>  
 
+            <!-- camera.update() service -->
+            <script>
+                var camera_manager = new EventSource("/camera_manager");
+                camera_manager.onmessage = function(event) {
+                    data = event.data.split("&&&");
+                    camera_id = data[0];
+                    status = data[1];
+                    if (status == 'Noooooone') {
+                        alert(`Camera ${camera_id} is not responding!`);
+                    }
 
+
+                }
+            </script>
             <!-- Device Info Monitoring -->
             <script>
                 var device_info = new EventSource("/system_info");
@@ -64,6 +77,8 @@
                 }
             </script>
 
+
+
             
 
 
@@ -75,7 +90,7 @@
           <!-- Sidebar -->
             <nav id="sidebar">
                 <div class="sidebar-header">
-                    <h3>ID Badge Detector</h3>
+                    <h3>Badge Detector</h3>
                 </div>
         
                 <ul class="list-unstyled components">
@@ -83,13 +98,12 @@
                     <li class="active">
                         <a href="#camerasSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-video"></i>
-                            cameras</a>
+                            cameras ({{list_len}})</a>
                         <ul class="collapse list-unstyled" id="camerasSubmenu">
-                            {% for camera_id in range(list_len) %}
+                            {% for idx in range(list_len) %}
                                 <li>
-                                    <a href="#{{camera_list[camera_id].id}}">{{camera_list[camera_id].id}}</a>
-                                </li>
-                                
+                                    <a href="#carousel" data-slide-to={{idx}}>{{camera_list[idx].id}}</a>
+                                </li> 
                             {% endfor %}
                         </ul>
                     </li>
@@ -152,12 +166,6 @@
                                     </ul>
                                 </li>
                             </ul>
-                    </li>
-                    <li>
-                        <a href="Locations">
-                            <i class="fas fa-map"></i>
-                            Camera Locations
-                        </a>
                     </li>
                     <li class="active">
                         <a href="#systemInfo" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">

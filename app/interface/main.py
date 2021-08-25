@@ -39,7 +39,7 @@ def monitor_device_info():
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
         yield "data: " + str(cpu) + str(ram) + "\n\n"
-        sleep(0.5)
+        sleep(2)
 
 @app.route('/system_info')
 def system_info():
@@ -82,9 +82,16 @@ def update_cameras():
                         if attempt > 2:
                             print("Camera {} - Restarted".format(camera.id))
                         return
-                #camera_list.pop(idx)               # TODO: DELETE HASHTAG AFTER TESTING
+                #print("camera {} removed".format(camera.id))
+                #camera_list.pop(idx)               # TODO: DELETE HASHTAGS AFTER TESTING
+            yield "data: " + str(camera.id) + str("&&&") + str(res) + "\n\n"
         print("Currently have {} cameras online".format(len(camera_list)))
-    
+        
+@app.route('/camera_manager')
+def camera_manager():
+    return Response(update_cameras(), mimetype='text/event-stream')
+
+
 
 @app.route('/add_camera', methods=[ 'GET','POST'])
 def add_camera():
@@ -111,9 +118,24 @@ def remove_camera():
     for idx in range(len(camera_list)):
         if camera_list[idx].id == id:
             camera_list.pop(idx)
+            break
 
     return index()
-            
+
+# TODO: setup the sliders in html
+'''@app.route('/update_settings', methods=['GET', 'POST'])
+def update_settings():
+    buffer_size = request.form.get("buffer_slider")
+    object_lifetime = request.form.get("lifetime_slider")
+    max_badge_check_count = request.form.get("maxcheck_slider")
+
+    for camera in camera_list:
+        camera.buffer_size = buffer_size
+        camera.object_lifetime = object_lifetime
+        camera.max_badge_check_count = max_badge_check_count
+    
+    return ('', 204)'''
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -129,12 +151,7 @@ def video_feed(cam_id=None):
 
 if __name__ == "__main__":
     initializer = Thread(target=start_cameras)
-    updater = Thread(target=update_cameras)
-    #state_monitor = Thread(target=monitor_camera_state)
-
     initializer.start()
     sleep(2)
-    updater.start()
-    #state_monitor.start()
 
     app.run(debug=True, use_reloader=True, host="127.0.0.1", port="5000")
