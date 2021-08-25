@@ -59,37 +59,8 @@
                     else {
                         alert_message = "test"
                     };
-
-                    alert_message_text.innerHTML = alert_message;
                     
-                    var alert_div = document.createElement('div');
-                        alert_div.className = 'alert alert-danger';
-                        alert_div.role = 'alert';
-                        alert_div.id = `${camera}_alert`;
-                    var message_div = document.createElement('div');
-                        message_div.className = 'message';
-                    var message_title = document.createElement('strong');
-                        message_title.innerHTML = 'Holy Guacamole: &nbsp;';
-                    var message_body = document.createElement('weak');
-                        message_body.innerHTML = alert_message;
-                    var del_button = document.createElement('button');
-                        del_button.type = 'button';
-                        del_button.class = 'close';
-                        del_button.data_dismiss = 'alert';
-                        del_button.aria_label = 'Close';
-                    var span = document.createElement('span');
-                        span.aria_hidden = 'true';
-                        span.innerHTML = '&times;';
-                    
-                    alert_div.appendChild(message_div);
-                    alert_div.appendChild(del_button);
-                    message_div.appendChild(message_title);
-                    message_div.appendChild(message_body);
-                    del_button.appendChild(span);
-                    
-                    document.getElementById('content').appendChild(alert_div);
-                    alert('done')
-                    
+                    alert(alert_message)
                 }
             </script>
 
@@ -114,15 +85,12 @@
                             <i class="fas fa-video"></i>
                             cameras</a>
                         <ul class="collapse list-unstyled" id="camerasSubmenu">
-                            <li>
-                                <a href="templates/carousel.html">Camera 1</a>
-                            </li>
-                            <li>
-                                <a href="#2">Camera 2</a>
-                            </li>
-                            <li>
-                                <a href="#3">Camera 3</a>
-                            </li>
+                            {% for camera_id in range(list_len) %}
+                                <li>
+                                    <a href="#{{camera_list[camera_id].id}}">{{camera_list[camera_id].id}}</a>
+                                </li>
+                                
+                            {% endfor %}
                         </ul>
                     </li>
                     <li>
@@ -140,6 +108,50 @@
                                 <a href="#3">setting 3</a>
                             </li>
                         </ul>
+                    </li>
+                    <li>
+                        <a href="#manageCamerasSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                            <i class="fas fa-video"></i>
+                            Manage Cameras</a>
+                            <ul class="collapse list-unstyled" id="manageCamerasSubmenu">
+                                <li>
+                                    <a href="#addCameraSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                                        Add</a>
+                                    <ul class="collapse list-unstyled" id="addCameraSubmenu">
+                                        <li>
+                                            <form action="{{ url_for('add_camera')}}" method="post">
+                                                <input type="text" id="addCameraForm_id" name="addCameraForm_id" placeholder="ID/Name" style="color:blue;width:100%"><br>  
+                                                <input type="text" id="addCameraForm_url" name="addCameraForm_url" placeholder="Path to stream" style="color:blue;width:100%"><br>
+                                                <li class="allowedBadgesList">
+                                                    <input type="checkbox" id="badge_1" name="badge_1" value="1">
+                                                    <label for="badge_1">Blue</label><br>
+                                                    <input type="checkbox" id="badge_2" name="badge_2" value="2">
+                                                    <label for="badge_2">Orange</label><br>
+                                                    <input type="checkbox" id="badge_3" name="badge_3" value="3">
+                                                    <label for="badge_3">Green</label><br>
+                                                    <input type="checkbox" id="badge_4" name="badge_4" value="4">
+                                                    <label for="badge_4">Dark Blue</label><br>
+                                                    <input type="checkbox" id="badge_5" name="badge_5" value="5">
+                                                    <label for="badge_5">Pink</label><br>
+                                                </li>
+                                                <button type="submit" style="width:100%">Add Camera</button>                                          
+                                            </form>  
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li>
+                                    <a href="#removeCameraSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                                        Remove</a>
+                                    <ul class="collapse list-unstyled" id="removeCameraSubmenu">
+                                        <li>
+                                            <form action="{{ url_for('remove_camera')}}" method="post">
+                                                <input type="text" id="removeCameraForm_id" name="removeCameraForm_id" placeholder="ID/Name" style="color:blue;width:100%"><br>  
+                                                <button type="submit" style="width:100%">Remove Camera</button>       
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
                     </li>
                     <li>
                         <a href="Locations">

@@ -1,8 +1,9 @@
 from threading import Thread
 from time import sleep
 import psutil
+import random
 
-from flask import Flask, render_template, Response, json
+from flask import Flask, render_template, Response, request, redirect
 
 from app.detector.camera import SurveillanceCamera
 from app.detector.models import PersonDetector, BadgeDetector, BadgeClassifier
@@ -46,14 +47,12 @@ def system_info():
 
 def monitor_camera_state():
     while True:
-        global camera_list
         for camera in camera_list:
             alert_code = camera.state['alert']
-            #print(alert_code)
             if alert_code is not None:
                 print("Should see an alert: code {}".format(alert_code))
                 camera.updateState()
-            yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
+                yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
         sleep(15)
             
 
@@ -62,26 +61,7 @@ def state_info():
     return Response(monitor_camera_state(), mimetype='text/event-stream')
 
 
-'''def monitor_camera_state():
-    while True:
-        global camera_list
-        for camera in camera_list:
-            alert_code = camera.state['alert']
-            if alert_code is not None:
-                message_template = "Holy Guacamole! Camera {} found a person that".format(camera.id)
-                if alert_code == 0:
-                    message = message_template + "does not have a badge"
-                elif alert_code == 1:
-                    message = message_template + "is in a restricted area"
-                elif alert_code == 2:
-                    message = message_template + "might have a badge but not a valid SBP badge"
-                flash(message, 'alert')
-                camera.updateState()
-        sleep(10)'''
-
-
 def start_cameras():
-    global camera_list
     for camera in camera_list:
         print("Attempting to start camera {}".format(camera.id))
         camera.start()
@@ -91,7 +71,6 @@ def start_cameras():
 
 def update_cameras():
     while True:
-        global camera_list
         for idx in range(len(camera_list)):
             camera = camera_list[idx]
             res = camera.update()
@@ -103,9 +82,38 @@ def update_cameras():
                         if attempt > 2:
                             print("Camera {} - Restarted".format(camera.id))
                         return
-                #camera_list.pop(idx)
-            # print("Currently have {} cameras online".format(len(camera_list)))
+                #camera_list.pop(idx)               # TODO: DELETE HASHTAG AFTER TESTING
+        print("Currently have {} cameras online".format(len(camera_list)))
+    
 
+@app.route('/add_camera', methods=[ 'GET','POST'])
+def add_camera():
+    id = request.form.get("addCameraForm_id")
+    path_to_stream = request.form.get("addCameraForm_url")
+    allowed_badges = []
+    for i in range(1, 6):
+        badge = request.form.get("badge_"+str(i)) 
+        if badge is not None:
+            allowed_badges.append(i)
+
+    camera = SurveillanceCamera(id, person_detection_model, badge_detection_model,
+                               badge_classification_model, allowed_badges, path_to_stream, 
+                               BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
+    camera.start()
+    camera_list.append(camera)
+
+    #return ('', 204)
+    return index()
+
+@app.route('/remove_camera', methods=['GET', 'POST'])
+def remove_camera():
+    id = request.form.get("removeCameraForm_id")
+    for idx in range(len(camera_list)):
+        if camera_list[idx].id == id:
+            camera_list.pop(idx)
+
+    return index()
+            
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
