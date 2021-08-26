@@ -179,3 +179,8 @@ ul ul a {
       align-items: center;
       flex: 1;
 }
+
+.form-range {
+    width: 100%;
+    
+}

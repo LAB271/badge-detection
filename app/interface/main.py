@@ -2,6 +2,7 @@ from threading import Thread
 from time import sleep
 import psutil
 import random
+from datetime import datetime
 
 from flask import Flask, render_template, Response, request, redirect
 
@@ -53,7 +54,7 @@ def monitor_camera_state():
                 print("Should see an alert: code {}".format(alert_code))
                 camera.updateState()
                 yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
-        sleep(15)
+        sleep(2)
             
 
 @app.route('/state_info')
@@ -85,7 +86,7 @@ def update_cameras():
                 #print("camera {} removed".format(camera.id))
                 #camera_list.pop(idx)               # TODO: DELETE HASHTAGS AFTER TESTING
             yield "data: " + str(camera.id) + str("&&&") + str(res) + "\n\n"
-        print("Currently have {} cameras online".format(len(camera_list)))
+        #print("Currently have {} cameras online".format(len(camera_list)))
         
 @app.route('/camera_manager')
 def camera_manager():
@@ -123,18 +124,28 @@ def remove_camera():
     return index()
 
 # TODO: setup the sliders in html
-'''@app.route('/update_settings', methods=['GET', 'POST'])
+@app.route('/update_settings', methods=['GET', 'POST'])
 def update_settings():
-    buffer_size = request.form.get("buffer_slider")
-    object_lifetime = request.form.get("lifetime_slider")
-    max_badge_check_count = request.form.get("maxcheck_slider")
+    global BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT
+    buffer_size = int(request.form.get("buffer_range"))
+    object_lifetime = int(request.form.get("lifetime_range"))
+    max_badge_check_count = int(request.form.get("maxcheck_range"))
 
-    for camera in camera_list:
-        camera.buffer_size = buffer_size
-        camera.object_lifetime = object_lifetime
-        camera.max_badge_check_count = max_badge_check_count
+    if buffer_size is not None and buffer_size > 0:
+        BUFFER = buffer_size
+
+    if object_lifetime is not None and object_lifetime > 0:
+        OBJECT_LIFETIME = object_lifetime
+
+    if max_badge_check_count is not None and max_badge_check_count > 0:
+        MAX_BADGE_CHECK_COUNT = max_badge_check_count
     
-    return ('', 204)'''
+    for camera in camera_list:
+        camera.buffer_size = BUFFER
+        camera.object_lifetime = OBJECT_LIFETIME
+        camera.max_badge_check_count = MAX_BADGE_CHECK_COUNT
+
+    return ('', 204)
 
 
 @app.route('/', methods=['GET', 'POST'])

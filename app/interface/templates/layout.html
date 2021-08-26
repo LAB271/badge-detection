@@ -59,7 +59,7 @@
                     data = event.data.split("&&&");
                     camera = data[0];
                     alert_code = data[1];
-                    message_template = `Camera ${camera} found a person that`;
+                    message_template = `Camera ${camera} found a person that `;
                     if (alert_code == 0) {
                         alert_message = message_template + "does not have a badge"
                     } 
@@ -95,10 +95,10 @@
         
                 <ul class="list-unstyled components">
                     <p>Schuberg Philis</p>
-                    <li class="active">
+                    <li>
                         <a href="#camerasSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-video"></i>
-                            cameras ({{list_len}})</a>
+                            Cameras ({{list_len}})</a>
                         <ul class="collapse list-unstyled" id="camerasSubmenu">
                             {% for idx in range(list_len) %}
                                 <li>
@@ -110,17 +110,26 @@
                     <li>
                         <a href="#settingsSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-cogs"></i>
-                            settings</a>
-                        <ul class="collapse list-unstyled" id="camerasSubmenu">
-                            <li>
-                                <a href="templates/carousel.html">Buffer 1</a>
-                            </li>
-                            <li>
-                                <a href="#2">setting 2</a>
-                            </li>
-                            <li>
-                                <a href="#3">setting 3</a>
-                            </li>
+                            Settings</a>
+                        <ul class="collapse list-unstyled" id="settingsSubmenu">
+                            <form action="{{ url_for('update_settings')}}" method="post">
+                                <li>
+                                        <label for="buffer_range" class="form-label">Buffer size ({{camera_list[0].buffer_size}})</label>
+                                        <input type="range" class="form-range" min="1" max="30" step="1" id="buffer_range" name="buffer_range" value="{{camera_list[0].buffer_size}}"/>
+                                </li>
+                                <li>
+                                        <label for="lifetime_range" class="form-label">Object Lifetime ({{camera_list[0].object_lifetime}})</label>
+                                        <input type="range" class="form-range" min="1" max="30" step="1" id="lifetime_range" name="lifetime_range" value="{{camera_list[0].object_lifetime}}"/>
+                                </li>
+                                <li>
+                                        <label for="maxcheck_range" class="form-label">Max Badge Check Count ({{camera_list[0].max_badge_check_count}})</label>
+                                        <input type="range" class="form-range" min="1" max="15" step="1" id="maxcheck_range" name="maxcheck_range" value="{{camera_list[0].max_badge_check_count}}"/>
+                                </li>
+                                <li>
+                                    <input type="submit">
+                                </li>
+                            </form>
+                    </form>
                         </ul>
                     </li>
                     <li>
@@ -167,7 +176,7 @@
                                 </li>
                             </ul>
                     </li>
-                    <li class="active">
+                    <li>
                         <a href="#systemInfo" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                             <i class="fas fa-video"></i>
                             System Info</a>
