@@ -1,7 +1,6 @@
 from threading import Thread
 from time import sleep
-import psutil
-import random
+import psutil, GPUtil
 from datetime import datetime
 
 from flask import Flask, render_template, Response, request, redirect
@@ -39,7 +38,9 @@ def monitor_device_info():
     while True:
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
-        yield "data: " + str(cpu) + str(ram) + "\n\n"
+        gpu = (GPUtil.getGPUs())[0].memoryUsed*100/((GPUtil.getGPUs())[0].memoryTotal) if len(GPUtil.getGPUs()) > 0 else 0
+        
+        yield "data: " + str(cpu) + str("&&&") + str(ram) + str("&&&") + str(gpu) + "\n\n"
         sleep(2)
 
 @app.route('/system_info')
