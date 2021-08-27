@@ -52,7 +52,6 @@ def monitor_camera_state():
         for camera in camera_list:
             alert_code = camera.state['alert']
             if alert_code is not None:
-                print("Should see an alert: code {}".format(alert_code))
                 camera.updateState()
                 yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
         sleep(2)
@@ -63,24 +62,6 @@ def state_info():
     return Response(monitor_camera_state(), mimetype='text/event-stream')
 
 
-def monitor_camera_state():
-    while True:
-        global camera_list
-        for camera in camera_list:
-            alert_code = camera.state['alert']
-            if alert_code is not None:
-                message_template = "Holy Guacamole! Camera {} found a person that".format(camera.id)
-                if alert_code == 0:
-                    message = message_template + "does not have a badge"
-                elif alert_code == 1:
-                    message = message_template + "is in a restricted area"
-                elif alert_code == 2:
-                    message = message_template + "might have a badge but not a valid SBP badge"
-                flash(message, 'alert')
-                camera.updateState()
-        sleep(10)
-
-
 def start_cameras():
     for camera in camera_list:
         print("Attempting to start camera {}".format(camera.id))
@@ -89,21 +70,25 @@ def start_cameras():
     pipeline.LOOP.run()
 
 
+def restart(camera, timeout=10):
+    for attempt in range(timeout):
+        sleep(1)
+        res = camera.update()
+        if res is not None:
+            if attempt > 2:
+                print("Camera {} - Restarted".format(camera.id))
+            return res
+    return False
+
 def update_cameras():
     while True:
         for idx in range(len(camera_list)):
             camera = camera_list[idx]
             res = camera.update()
             if res is None:
-                for attempt in range(10):
-                    sleep(1)
-                    res = camera.update()
-                    if res is not None:
-                        if attempt > 2:
-                            print("Camera {} - Restarted".format(camera.id))
-                        return
-                #print("camera {} removed".format(camera.id))
-                #camera_list.pop(idx)               # TODO: DELETE HASHTAGS AFTER TESTING
+                if not restart(camera):
+                    pass
+                    #if not => camera_list.pop(idx)                      
             yield "data: " + str(camera.id) + str("&&&") + str(res) + "\n\n"
         #print("Currently have {} cameras online".format(len(camera_list)))
         
@@ -169,7 +154,8 @@ def update_settings():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    return render_template('carousel.html', list_len=len(camera_list), camera_list=camera_list)
+    properties = [BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT]
+    return render_template('layout.html', list_len=len(camera_list), camera_list=camera_list, properties=properties)
 
 
 @app.route('/video_feed/<cam_id>')

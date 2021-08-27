@@ -60,8 +60,10 @@ class SurveillanceCamera(object):
 
         # Stop service if stream ended
         if self.last_read_frame is None:
-            # Implement some sort of restart system here. Security cameras should not ever be turned off
-            return None
+            if not self.running:
+                return False
+            else:
+                return None
 
         # Avoid processing the same frame again
         if self.last_read_frame['scanned']:
@@ -106,18 +108,6 @@ class SurveillanceCamera(object):
                 if badge_found:
                     person.addScanDataToBuffer(scan_data)
                     person.badge = True
-
-                '''# If there's enough data in the buffer to proceed, make a conclusion about the badges
-                if person.getBufferOppacity('scanned') > 1:
-
-                    score_list = person.getBuffer('scanned scores')
-                    detection_results = self.evaluate_detected_badges(score_list)
-
-                    if detection_results is not None:
-                        person.badge = True
-                        # person.badge_score = detection_results
-
-                    # person.badge_check_count+=1'''
 
             # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
             if person.badge and person.badge_number is None:
@@ -350,6 +340,7 @@ class SurveillanceCamera(object):
     def updateState(self, code=None):
         self.state['alert'] = code
 
+
     def read_frame(self, sink):
         # Start FPS count engine
         if self.frame_id == 0:
@@ -372,15 +363,17 @@ class SurveillanceCamera(object):
         return False  # Not necessary, but otherwise spams the terminal with an error message
     
     def start(self):
-        pipe = pipeline.Pipe(self.id, self.cam_url)
-        pipe.run()
-        appsink = pipe.get_appsink()
+        self.running = True
+        self.pipe = pipeline.Pipe(self.id, self.cam_url)
+        self.pipe.run()
+        appsink = self.pipe.get_appsink()
         appsink.connect("new-sample", self.read_frame)
 
     def stop(self):
         # pipeline.LOOP.quit()
         # TODO: disconnect the appsink
         self.last_read_frame = None
+        self.running = False
 
     def get_frame_bytes(self, read=True):
         while read:
