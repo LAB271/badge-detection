@@ -12,3 +12,4 @@ gobject==0.1.0
 PyGObject==3.40.1
 PyGObject-stubs==0.0.2
 psutil==5.8.0
+gputil==1.4.0

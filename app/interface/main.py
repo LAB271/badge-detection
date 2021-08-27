@@ -1,8 +1,9 @@
 from threading import Thread
 from time import sleep
-import psutil
+import psutil, GPUtil
+from datetime import datetime
 
-from flask import Flask, render_template, Response, json
+from flask import Flask, render_template, Response, request, redirect
 
 from app.detector.camera import SurveillanceCamera
 from app.detector.models import PersonDetector, BadgeDetector, BadgeClassifier
@@ -37,8 +38,10 @@ def monitor_device_info():
     while True:
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
-        yield "data: " + str(cpu) + str(ram) + "\n\n"
-        sleep(0.5)
+        gpu = (GPUtil.getGPUs())[0].memoryUsed*100/((GPUtil.getGPUs())[0].memoryTotal) if len(GPUtil.getGPUs()) > 0 else 0
+        
+        yield "data: " + str(cpu) + str("&&&") + str(ram) + str("&&&") + str(gpu) + "\n\n"
+        sleep(2)
 
 @app.route('/system_info')
 def system_info():
@@ -46,15 +49,13 @@ def system_info():
 
 def monitor_camera_state():
     while True:
-        global camera_list
         for camera in camera_list:
             alert_code = camera.state['alert']
-            #print(alert_code)
             if alert_code is not None:
                 print("Should see an alert: code {}".format(alert_code))
                 camera.updateState()
-            yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
-        sleep(15)
+                yield "data: " + str(camera.id) + str("&&&") + str(alert_code) + "\n\n"
+        sleep(2)
             
 
 @app.route('/state_info')
@@ -81,7 +82,6 @@ def monitor_camera_state():
 
 
 def start_cameras():
-    global camera_list
     for camera in camera_list:
         print("Attempting to start camera {}".format(camera.id))
         camera.start()
@@ -91,7 +91,6 @@ def start_cameras():
 
 def update_cameras():
     while True:
-        global camera_list
         for idx in range(len(camera_list)):
             camera = camera_list[idx]
             res = camera.update()
@@ -103,8 +102,69 @@ def update_cameras():
                         if attempt > 2:
                             print("Camera {} - Restarted".format(camera.id))
                         return
-                #camera_list.pop(idx)
-            # print("Currently have {} cameras online".format(len(camera_list)))
+                #print("camera {} removed".format(camera.id))
+                #camera_list.pop(idx)               # TODO: DELETE HASHTAGS AFTER TESTING
+            yield "data: " + str(camera.id) + str("&&&") + str(res) + "\n\n"
+        #print("Currently have {} cameras online".format(len(camera_list)))
+        
+@app.route('/camera_manager')
+def camera_manager():
+    return Response(update_cameras(), mimetype='text/event-stream')
+
+
+
+@app.route('/add_camera', methods=[ 'GET','POST'])
+def add_camera():
+    id = request.form.get("addCameraForm_id")
+    path_to_stream = request.form.get("addCameraForm_url")
+    allowed_badges = []
+    for i in range(1, 6):
+        badge = request.form.get("badge_"+str(i)) 
+        if badge is not None:
+            allowed_badges.append(i)
+
+    camera = SurveillanceCamera(id, person_detection_model, badge_detection_model,
+                               badge_classification_model, allowed_badges, path_to_stream, 
+                               BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT)
+    camera.start()
+    camera_list.append(camera)
+
+    #return ('', 204)
+    return index()
+
+@app.route('/remove_camera', methods=['GET', 'POST'])
+def remove_camera():
+    id = request.form.get("removeCameraForm_id")
+    for idx in range(len(camera_list)):
+        if camera_list[idx].id == id:
+            camera_list.pop(idx)
+            break
+
+    return index()
+
+# TODO: setup the sliders in html
+@app.route('/update_settings', methods=['GET', 'POST'])
+def update_settings():
+    global BUFFER, OBJECT_LIFETIME, MAX_BADGE_CHECK_COUNT
+    buffer_size = int(request.form.get("buffer_range"))
+    object_lifetime = int(request.form.get("lifetime_range"))
+    max_badge_check_count = int(request.form.get("maxcheck_range"))
+
+    if buffer_size is not None and buffer_size > 0:
+        BUFFER = buffer_size
+
+    if object_lifetime is not None and object_lifetime > 0:
+        OBJECT_LIFETIME = object_lifetime
+
+    if max_badge_check_count is not None and max_badge_check_count > 0:
+        MAX_BADGE_CHECK_COUNT = max_badge_check_count
+    
+    for camera in camera_list:
+        camera.buffer_size = BUFFER
+        camera.object_lifetime = OBJECT_LIFETIME
+        camera.max_badge_check_count = MAX_BADGE_CHECK_COUNT
+
+    return ('', 204)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -126,12 +186,7 @@ def video_feed(cam_id=None):
 
 if __name__ == "__main__":
     initializer = Thread(target=start_cameras)
-    updater = Thread(target=update_cameras)
-    #state_monitor = Thread(target=monitor_camera_state)
-
     initializer.start()
     sleep(2)
-    updater.start()
-    #state_monitor.start()
 
     app.run(debug=True, use_reloader=True, host="127.0.0.1", port="5000")
