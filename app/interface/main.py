@@ -3,7 +3,7 @@ from time import sleep
 import psutil, GPUtil
 from datetime import datetime
 
-from flask import Flask, render_template, Response, request, redirect
+from flask import Flask, render_template, Response, request, redirect, flash
 
 from app.detector.camera import SurveillanceCamera
 from app.detector.models import PersonDetector, BadgeDetector, BadgeClassifier

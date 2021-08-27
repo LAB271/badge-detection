@@ -64,23 +64,23 @@ a, a:hover, a:focus {
     min-width: 250px;
     max-width: 250px;
     min-height: 100vh;
-    background: #7386D5;
-    color: #fff;
+    background: rgba(134,126,122,255);
+    color: #ffffff;
     transition: all 0.3s;
 }
 
 #sidebar .sidebar-header {
     padding: 20px;
-    background: #6d7fcc;
+    background: #5d5a56;
 }
 
 #sidebar ul.components {
     padding: 20px 0;
-    border-bottom: 1px solid #47748b;
+    border-bottom: 1px solid #5d5a56;
 }
 
 #sidebar ul p {
-    color: #fff;
+    color: #ffffff;
     padding: 10px;
 }
 
@@ -90,18 +90,19 @@ a, a:hover, a:focus {
     display: block;
 }
 #sidebar ul li a:hover {
-    color: #7386D5;
-    background: #fff;
+    color: #ffffff;
+    background: #6babe0;
 }
 
 #sidebar ul li.active > a, a[aria-expanded="true"] {
-    color: #fff;
-    background: #6d7fcc;
+    color: #ffffff;
+    background: rgba(134,126,122,255);
 }
+
 ul ul a {
     font-size: 0.9em !important;
     padding-left: 30px !important;
-    background: #6d7fcc;
+    background: #6babe0;
 }
 
 .container{
