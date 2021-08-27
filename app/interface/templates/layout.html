@@ -138,7 +138,9 @@
                                         <input type="range" class="form-range" min="1" max="15" step="1" id="maxcheck_range" name="maxcheck_range" value="{{camera_list[0].max_badge_check_count}}"/>
                                 </li>
                                 <li>
-                                    <input type="submit">
+                                    <div class="submitbutton-container">
+                                    <input type="submit" class="btn btn-primary">
+                                    </div>
                                 </li>
                             </form>
                     </form>
@@ -155,21 +157,23 @@
                                     <ul class="collapse list-unstyled" id="addCameraSubmenu">
                                         <li>
                                             <form action="{{ url_for('add_camera')}}" method="post">
-                                                <input type="text" id="addCameraForm_id" name="addCameraForm_id" placeholder="ID/Name" style="color:blue;width:100%"><br>  
-                                                <input type="text" id="addCameraForm_url" name="addCameraForm_url" placeholder="Path to stream" style="color:blue;width:100%"><br>
+                                                <input type="text" id="addCameraForm_id" name="addCameraForm_id" placeholder="ID/Name" style="color:blue;width:80%;margin-left:10px; border-radius: 5px; margin-top: 10px"><br>  
+                                                <input type="text" id="addCameraForm_url" name="addCameraForm_url" placeholder="Path to stream" style="color:blue;width:80%;margin-left:10px; border-radius: 5px; margin-top: 10px"><br>
                                                 <li class="allowedBadgesList">
-                                                    <input type="checkbox" id="badge_1" name="badge_1" value="1">
+                                                    <input type="checkbox" id="badge_1" name="badge_1" value="1" style="margin-left:10px; margin-top: 10px;">
                                                     <label for="badge_1">Blue</label><br>
-                                                    <input type="checkbox" id="badge_2" name="badge_2" value="2">
+                                                    <input type="checkbox" id="badge_2" name="badge_2" value="2"style="margin-left:10px">
                                                     <label for="badge_2">Orange</label><br>
-                                                    <input type="checkbox" id="badge_3" name="badge_3" value="3">
+                                                    <input type="checkbox" id="badge_3" name="badge_3" value="3"style="margin-left:10px">
                                                     <label for="badge_3">Green</label><br>
-                                                    <input type="checkbox" id="badge_4" name="badge_4" value="4">
+                                                    <input type="checkbox" id="badge_4" name="badge_4" value="4"style="margin-left:10px">
                                                     <label for="badge_4">Dark Blue</label><br>
-                                                    <input type="checkbox" id="badge_5" name="badge_5" value="5">
+                                                    <input type="checkbox" id="badge_5" name="badge_5" value="5"style="margin-left:10px">
                                                     <label for="badge_5">Pink</label><br>
                                                 </li>
-                                                <button type="submit" style="width:100%">Add Camera</button>                                          
+                                                <div class="submitbutton-container">
+                                                <button type="submit"  class="btn btn-primary">Add Camera</button> 
+                                            </div>                                         
                                             </form>  
                                         </li>
                                     </ul>
@@ -180,8 +184,10 @@
                                     <ul class="collapse list-unstyled" id="removeCameraSubmenu">
                                         <li>
                                             <form action="{{ url_for('remove_camera')}}" method="post">
-                                                <input type="text" id="removeCameraForm_id" name="removeCameraForm_id" placeholder="ID/Name" style="color:blue;width:100%"><br>  
-                                                <button type="submit" style="width:100%">Remove Camera</button>       
+                                                <input type="text" id="removeCameraForm_id" name="removeCameraForm_id" placeholder="ID/Name" style="color:blue;width:80%;margin-left:10px; border-radius: 5px; margin-top: 10px"><br>  
+                                                <div class="submitbutton-container">
+                                                <button type="submit"  class="btn btn-primary">Remove Camera</button>  
+                                                </div>     
                                             </form>
                                         </li>
                                     </ul>
