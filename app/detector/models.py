@@ -7,6 +7,8 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from app.models.faceDetection.vision.ssd.config.fd_config import define_img_size
 
 test_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+print(test_device)
+print(torch.version.cuda)
 
 
 class PersonDetector:
