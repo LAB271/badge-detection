@@ -67,6 +67,7 @@ a, a:hover, a:focus {
     background: rgba(134,126,122,255);
     color: #ffffff;
     transition: all 0.3s;
+    z-index: 1;
 }
 
 #sidebar .sidebar-header {
@@ -153,25 +154,26 @@ ul ul a {
     cursor: pointer; 
   }
   
-  .slider::-moz-range-thumb {
+.slider::-moz-range-thumb {
     width: 25px; /* Set a specific slider handle width */
     height: 25px; /* Slider handle height */
     background: #04AA6D; /* Green background */
     cursor: pointer; /* Cursor on hover */
-  }
+}
 
-  .alert {
-      position: fixed;
-      top: 10vh;
-      width: 50vw;
-      margin-left: 15vw;
-      box-shadow: 0px 10px 53px 0px rgba(194, 7, 7, 0.6) !important;
-  }
+.alert {
+    position: fixed;
+    top: 10vh;
+    width: 50vw;
+    margin-left: 15vw;
+    box-shadow: 0px 10px 53px 0px rgba(194, 7, 7, 0.6) !important;
 
-  .message {
-      display: flex;
-      align-items: center;
-      flex: 1;
+}
+
+.message {
+    display: flex;
+    align-items: center;
+    flex: 1;
 }
 
 .form-range {

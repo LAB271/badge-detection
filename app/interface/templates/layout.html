@@ -8,6 +8,7 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <link rel="stylesheet" href="static/assets/css/style.css">
+    <link rel="stylesheet" href="static/assets/css/connecting-dots.css">
     <title>God's Eye</title>
 
      <!-- Font Awesome JS -->
@@ -21,10 +22,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
     <!-- Bootstrap JS -->
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script> 
-    
+    <!-- libs for connecting dots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.19.1/easing/EasePack.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.19.1/TweenLite.min.js"></script>
+
     <!-- jquery -->
     <script src="jquery-3.5.1.min.js"></script>
-    <!-- alert plugin-->
+    <!-- alert plugin -->
     <script src="static/assets/js/jquery.bsAlerts.js"></script>
 
     <!-- Enabling binding of the alert plugin -->
@@ -238,6 +242,11 @@
             </ul>
         </nav>
 
+        <!-- connecting dots -->
+        <div id="connecting-dots" class="connecting-dots">
+            <canvas id="canvas"></canvas>
+        </div>
+        
         <div id="content">    
             
             <!-- navbar expand/collapse button -->
@@ -326,6 +335,9 @@
             document.getElementById("maxcheck_range_label").innerHTML = "Max Badge Check Count (" + newvalue_maxcheck + ")";
         });
     </script>
+
+    <!-- connecting dots engine -->
+    <script src="static/assets/js/connecting-dots.js"></script>
 
 </body>
 </html>

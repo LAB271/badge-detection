@@ -38,7 +38,6 @@ def monitor_device_info():
     while True:
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory()[2]
-        print(GPUtil.getGPUs())
         gpu = (GPUtil.getGPUs())[0].memoryUsed*100/((GPUtil.getGPUs())[0].memoryTotal) if len(GPUtil.getGPUs()) > 0 else 0
         
         yield "data: " + str(cpu) + str("&&&") + str(ram) + str("&&&") + str(gpu) + "\n\n"
@@ -71,7 +70,7 @@ def start_cameras():
     pipeline.LOOP.run()
 
 
-def restart(camera, timeout=10):
+def restart(camera, timeout=60):
     for attempt in range(timeout):
         sleep(1)
         res = camera.update()
@@ -89,7 +88,7 @@ def update_cameras():
             if res is None:
                 if not restart(camera):
                     pass
-                    #if not => camera_list.pop(idx)                      
+                    #camera_list.pop(idx)                      
             yield "data: " + str(camera.id) + str("&&&") + str(res) + "\n\n"
         #print("Currently have {} cameras online".format(len(camera_list)))
         

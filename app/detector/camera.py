@@ -1,5 +1,6 @@
 from datetime import datetime
 from statistics import mode
+from time import sleep
 
 import cv2
 import numpy as np
