@@ -102,7 +102,7 @@
                 alert_message = "test"
             };
             
-            (document).trigger("set-alert-id-detection_alert", [
+            $(document).trigger("set-alert-id-detection_alert", [
                 {
                     "message": alert_message,
                     "priority": 'warning'
@@ -289,8 +289,8 @@
 
             <!-- alert containers -->
             <div class="alert-containers">
-                <div data-alerts="alerts" data-titles='{"warning": "<em>Warning!</em>", "info": "<em>Attention!</em>"}' data-ids="not_responding_alert" fade=10></div>
-                <div data-alerts="alerts" data-titles='{"warning": "<em>Warning!</em>", "info": "<em>Attention!</em>"}' data-ids="detection_alert" data-fade=100></div>
+                <div data-alerts="alerts" data-titles='{"warning": "<em>Warning!</em>", "info": "<em>Attention!</em>"}' data-ids="not_responding_alert"></div>
+                <div data-alerts="alerts" data-titles='{"warning": "<em>Warning!</em>", "info": "<em>Attention!</em>"}' data-ids="detection_alert"></div>
             </div>
 
         </div> 

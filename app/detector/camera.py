@@ -1,6 +1,7 @@
 from datetime import datetime
 from statistics import mode
 from time import sleep
+import os
 
 import cv2
 import numpy as np
@@ -27,15 +28,15 @@ class SurveillanceCamera(object):
         self.max_badge_check_count = max_badge_check_count + buffer_size
         self.cam_url = path_to_stream
 
-        '''if self.record is not None:
-            now = datetime.now()
-            current_time = now.strftime(r"%d-%m-%Y_%H-%M-%S")
-            _, image = self.cap.read()
-            #fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-            fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
-            self.out = cv2.VideoWriter()
-            self.out.open(os.path.join(self.record, 'Camera {} - {}.avi'.format(self.id, current_time)),
-                                       fourcc, wanted_fps, (image.shape[1], image.shape[0]))'''
+        self.cap = cv2.VideoCapture(path_to_stream)
+        now = datetime.now()
+        current_time = now.strftime(r"%d-%m-%Y_%H-%M-%S")
+        _, image = self.cap.read()
+        #fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+        fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
+        self.out = cv2.VideoWriter()
+        self.out.open(os.path.join('Camera {} - {}.avi'.format(self.id, current_time)),
+                                    fourcc, 5, (image.shape[1], image.shape[0]))
 
         self.mot_tracker = Sort(max_age=object_lifetime)
         #Time taken to track 1 persons: 0:00:00.010724
@@ -58,6 +59,10 @@ class SurveillanceCamera(object):
         # Start FPS count engine
         if self.frame_id == 0:
             self.fps.start()
+
+        if self.frame_id == 75:
+            self.out.release()
+            print('RECORDED!')
 
         # Stop service if stream ended
         if self.last_read_frame is None:
@@ -105,10 +110,10 @@ class SurveillanceCamera(object):
                 person_cutout = person.getImage(person.getBufferOppacity('person cutouts')-1, as_tensor=True)
                 #print(person.getBufferOppacity('person cutouts'))
                 badge_found, scan_data = self.detect_badge(person_cutout, threshold=0.5)
-                print("Detection score: {}".format(person.getBuffer('scanned scores')))
                 if badge_found:
                     person.addScanDataToBuffer(scan_data)
                     person.badge = True
+                print("Detection score: {}".format(person.getBuffer('scanned scores')))
 
             # if a person HAS a badge, but it's not yet known which one, initiate the classifier module
             if person.badge and person.badge_number is None:
@@ -171,6 +176,7 @@ class SurveillanceCamera(object):
         self.last_updated_frame = self.orig_image
         #print("Time taken to complete final calculations: {}".format(datetime.now()-start_time))
         #print("Time taken to complete full loop: {}".format(datetime.now()-init_start_time))
+        self.out.write(cv2.cvtColor(self.last_updated_frame, cv2.COLOR_RGB2BGR))
         return True
 
     def track_persons(self, detected_faces, face_scores):
@@ -272,7 +278,7 @@ class SurveillanceCamera(object):
 
         for element in range(len(badge_bbox_prediction[0]["boxes"])):
             score = np.round(badge_bbox_prediction[0]["scores"][element].item(), decimals=2)
-            #print(score)
+            print("detection score: %s" %score)
             if score >= threshold:
                 badges = badge_bbox_prediction[0]["boxes"][element].cpu().numpy()
                 xB = int(badges[0])

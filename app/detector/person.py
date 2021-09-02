@@ -13,8 +13,8 @@ class Person(object):
         '''
         self.buffer_scanned = {'score_detection': [], 'badge_cutout': []} #, 'score_classification': [], 'label': []} # Stores detection scan data
         self.buffer_classified_badges = {'score_classification': [], 'label': []}
-        self.badge = None
-        self.badge_number = None
+        self.badge = None   # Stores whether a badge was found, not found, or is still being looked for
+        self.badge_number = None    # Stores the badge class
         self.badge_score = None     # Stores the detection, and later - classification model scores
         self.badge_check_count = 0
         self.max_lifetime = max_lifetime
