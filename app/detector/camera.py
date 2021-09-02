@@ -60,7 +60,7 @@ class SurveillanceCamera(object):
         if self.frame_id == 0:
             self.fps.start()
 
-        if self.frame_id == 75:
+        if self.frame_id == 0:
             self.out.release()
             print('RECORDED!')
 
